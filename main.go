@@ -57,10 +57,12 @@ var grabs = []Grab{
 	{
 		sym:       keysym.XK_q,
 		modifiers: xproto.ModMask1,
+		callback:  quitWindowGracefully,
 	},
 	{
 		sym:       keysym.XK_q,
 		modifiers: xproto.ModMask1 | xproto.ModMaskShift,
+		callback:  quitWindowForcefully,
 	},
 	{
 		sym:       keysym.XK_h,
@@ -106,6 +108,60 @@ var grabs = []Grab{
 		sym:       keysym.XK_Return,
 		modifiers: xproto.ModMaskControl | xproto.ModMask1,
 	},
+}
+
+func quitWindowGracefully() error {
+	if activeWindow == nil {
+		log.Println("Tried to close window, but no active window")
+		return nil
+	}
+	prop, err := xproto.GetProperty(xc, false, *activeWindow, atomWMProtocols,
+		xproto.GetPropertyTypeAny, 0, 64).Reply()
+	if err != nil {
+		return err
+	}
+	if prop == nil {
+		// There were no properties, so the window doesn't follow ICCCM.
+		// Just destroy it.
+		if activeWindow != nil {
+			return xproto.DestroyWindowChecked(xc, *activeWindow).Check()
+		}
+	}
+	for v := prop.Value; len(v) >= 4; v = v[4:] {
+		switch xproto.Atom(uint32(v[0]) | uint32(v[1])<<8 | uint32(v[2])<<16 | uint32(v[3])<<24) {
+		case atomWMDeleteWindow:
+			t := time.Now().Unix()
+			return xproto.SendEventChecked(
+				xc,
+				false,
+				*activeWindow,
+				xproto.EventMaskNoEvent,
+				string(xproto.ClientMessageEvent{
+					Format: 32,
+					Window: *activeWindow,
+					Type:   atomWMProtocols,
+					Data: xproto.ClientMessageDataUnionData32New([]uint32{
+						uint32(atomWMDeleteWindow),
+						uint32(t),
+						0,
+						0,
+						0,
+					}),
+				}.Bytes())).Check()
+		}
+	}
+	// No WM_DELETE_WINDOW protocol, so destroy.
+	if activeWindow != nil {
+		return xproto.DestroyWindowChecked(xc, *activeWindow).Check()
+	}
+	return nil
+}
+
+func quitWindowForcefully() error {
+	if activeWindow != nil {
+		return xproto.DestroyWindowChecked(xc, *activeWindow).Check()
+	}
+	return nil
 }
 
 func main() {
@@ -344,58 +400,6 @@ func HandleKeyPressEvent(key xproto.KeyPressEvent) error {
 	}
 
 	switch keymap[key.Detail][0] {
-	case keysym.XK_q:
-		switch key.State {
-		case xproto.ModMask1:
-			if activeWindow == nil {
-				log.Println("Tried to close window, but no active window")
-				return nil
-			}
-			prop, err := xproto.GetProperty(xc, false, *activeWindow, atomWMProtocols,
-				xproto.GetPropertyTypeAny, 0, 64).Reply()
-			if err != nil {
-				return err
-			}
-			if prop == nil {
-				// There were no properties, so the window doesn't follow ICCCM.
-				// Just destroy it.
-				if activeWindow != nil {
-					return xproto.DestroyWindowChecked(xc, *activeWindow).Check()
-				}
-			}
-			for v := prop.Value; len(v) >= 4; v = v[4:] {
-				switch xproto.Atom(uint32(v[0]) | uint32(v[1])<<8 | uint32(v[2])<<16 | uint32(v[3])<<24) {
-				case atomWMDeleteWindow:
-					t := time.Now().Unix()
-					return xproto.SendEventChecked(
-						xc,
-						false,
-						*activeWindow,
-						xproto.EventMaskNoEvent,
-						string(xproto.ClientMessageEvent{
-							Format: 32,
-							Window: *activeWindow,
-							Type:   atomWMProtocols,
-							Data: xproto.ClientMessageDataUnionData32New([]uint32{
-								uint32(atomWMDeleteWindow),
-								uint32(t),
-								0,
-								0,
-								0,
-							}),
-						}.Bytes())).Check()
-				}
-			}
-			// No WM_DELETE_WINDOW protocol, so destroy.
-			if activeWindow != nil {
-				return xproto.DestroyWindowChecked(xc, *activeWindow).Check()
-			}
-		case xproto.ModMask1 | xproto.ModMaskShift:
-			if activeWindow != nil {
-				return xproto.DestroyWindowChecked(xc, *activeWindow).Check()
-			}
-		}
-		return nil
 	case keysym.XK_h:
 		if activeWindow == nil {
 			return nil

@@ -1,18 +1,16 @@
 package main
 
-//go:generate lmt src/Initialize.md src/WindowManaging.md src/Keyboard.md src/MovingWindows.md src/ResizingWindows.md src/ColumnManagement.md src/OverrideRedirect.md src/GoGenerate.md src/Fullscreen.md
-// THIS IS A MACHINE GENERATED FILE BY THE ABOVE COMMAND; DO NOT EDIT
-
 import (
 	"errors"
-	"github.com/BurntSushi/xgb"
-	"github.com/BurntSushi/xgb/xinerama"
-	"github.com/BurntSushi/xgb/xproto"
-	"github.com/driusan/dewm/keysym"
 	"log"
 	"os/exec"
 	"sync"
 	"time"
+
+	"github.com/BurntSushi/xgb"
+	"github.com/BurntSushi/xgb/xinerama"
+	"github.com/BurntSushi/xgb/xproto"
+	"github.com/driusan/dewm/keysym"
 )
 
 var xc *xgb.Conn

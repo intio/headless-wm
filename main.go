@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"sync"
 	"time"
 
 	"github.com/BurntSushi/xgb"
@@ -73,11 +72,9 @@ var grabs = []Grab{
 				return nil
 			}
 			for _, wp := range workspaces {
-				go func(wp *Workspace) {
-					if err := wp.Left(ManagedWindow{*activeWindow}); err == nil {
-						wp.TileWindows()
-					}
-				}(wp)
+				if err := wp.Left(ManagedWindow{*activeWindow}); err == nil {
+					wp.TileWindows()
+				}
 			}
 			return nil
 		},
@@ -90,11 +87,9 @@ var grabs = []Grab{
 				return nil
 			}
 			for _, wp := range workspaces {
-				go func(wp *Workspace) {
-					if err := wp.Down(ManagedWindow{*activeWindow}); err == nil {
-						wp.TileWindows()
-					}
-				}(wp)
+				if err := wp.Down(ManagedWindow{*activeWindow}); err == nil {
+					wp.TileWindows()
+				}
 			}
 			return nil
 		},
@@ -107,11 +102,9 @@ var grabs = []Grab{
 				return nil
 			}
 			for _, wp := range workspaces {
-				go func(wp *Workspace) {
-					if err := wp.Up(ManagedWindow{*activeWindow}); err == nil {
-						wp.TileWindows()
-					}
-				}(wp)
+				if err := wp.Up(ManagedWindow{*activeWindow}); err == nil {
+					wp.TileWindows()
+				}
 			}
 			return nil
 		},
@@ -124,11 +117,9 @@ var grabs = []Grab{
 				return nil
 			}
 			for _, wp := range workspaces {
-				go func(wp *Workspace) {
-					if err := wp.Right(ManagedWindow{*activeWindow}); err == nil {
-						wp.TileWindows()
-					}
-				}(wp)
+				if err := wp.Right(ManagedWindow{*activeWindow}); err == nil {
+					wp.TileWindows()
+				}
 			}
 			return nil
 		},
@@ -208,7 +199,6 @@ func quitWindowForcefully() error {
 func cleanupColumns() error {
 	for _, w := range workspaces {
 		if w.IsActive() {
-			w.mu.Lock()
 			newColumns := make([]Column, 0, len(w.columns))
 			for _, c := range w.columns {
 				if len(c.Windows) > 0 {
@@ -221,7 +211,6 @@ func cleanupColumns() error {
 				w.columns = newColumns
 				w.TileWindows()
 			}
-			w.mu.Unlock()
 		}
 	}
 	return nil
@@ -230,9 +219,7 @@ func cleanupColumns() error {
 func addColumn() error {
 	for _, w := range workspaces {
 		if w.IsActive() {
-			w.mu.Lock()
 			w.columns = append(w.columns, Column{})
-			w.mu.Unlock()
 			w.TileWindows()
 		}
 	}
@@ -241,24 +228,23 @@ func addColumn() error {
 
 func maximizeActiveWindow() error {
 	for _, w := range workspaces {
-		go func(w *Workspace) {
-			if w.IsActive() {
-				if w.maximizedWindow == nil {
-					w.maximizedWindow = activeWindow
-				} else {
-					if err := xproto.ConfigureWindowChecked(
-						xc,
-						*w.maximizedWindow,
-						xproto.ConfigWindowBorderWidth,
-						[]uint32{2},
-					).Check(); err != nil {
-						log.Print(err)
-					}
-					w.maximizedWindow = nil
-				}
-				w.TileWindows()
+		if !w.IsActive() {
+			continue
+		}
+		if w.maximizedWindow == nil {
+			w.maximizedWindow = activeWindow
+		} else {
+			if err := xproto.ConfigureWindowChecked(
+				xc,
+				*w.maximizedWindow,
+				xproto.ConfigWindowBorderWidth,
+				[]uint32{2},
+			).Check(); err != nil {
+				log.Print(err)
 			}
-		}(w)
+			w.maximizedWindow = nil
+		}
+		w.TileWindows()
 	}
 	return nil
 }
@@ -358,7 +344,7 @@ func main() {
 	}
 	if tree != nil {
 		workspaces = make(map[string]*Workspace)
-		defaultw := &Workspace{mu: &sync.Mutex{}}
+		defaultw := &Workspace{}
 		for _, c := range tree.Children {
 			if err := defaultw.Add(c); err != nil {
 				log.Println(err)
@@ -398,11 +384,9 @@ eventloop:
 			}
 		case xproto.DestroyNotifyEvent:
 			for _, w := range workspaces {
-				go func(w *Workspace) {
-					if err := w.RemoveWindow(e.Window); err == nil {
-						w.TileWindows()
-					}
-				}(w)
+				if err := w.RemoveWindow(e.Window); err == nil {
+					w.TileWindows()
+				}
 			}
 			if activeWindow != nil && e.Window == *activeWindow {
 				activeWindow = nil

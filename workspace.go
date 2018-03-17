@@ -7,9 +7,6 @@ import (
 )
 
 func (wp *Workspace) Up(w ManagedWindow) error {
-	wp.mu.Lock()
-	defer wp.mu.Unlock()
-
 	for colnum, column := range wp.columns {
 		idx := -1
 		for i, candwin := range column.Windows {
@@ -30,9 +27,6 @@ func (wp *Workspace) Up(w ManagedWindow) error {
 }
 
 func (wp *Workspace) Down(w ManagedWindow) error {
-	wp.mu.Lock()
-	defer wp.mu.Unlock()
-
 	for colnum, column := range wp.columns {
 		idx := -1
 		for i, candwin := range column.Windows {
@@ -52,9 +46,6 @@ func (wp *Workspace) Down(w ManagedWindow) error {
 	return fmt.Errorf("Window not managed by workspace")
 }
 func (wp *Workspace) Left(w ManagedWindow) error {
-	wp.mu.Lock()
-	defer wp.mu.Unlock()
-
 	for colnum, column := range wp.columns {
 		idx := -1
 		for i, candwin := range column.Windows {
@@ -78,9 +69,6 @@ func (wp *Workspace) Left(w ManagedWindow) error {
 	return fmt.Errorf("Window not managed by workspace")
 }
 func (wp *Workspace) Right(w ManagedWindow) error {
-	wp.mu.Lock()
-	defer wp.mu.Unlock()
-
 	for colnum, column := range wp.columns {
 		idx := -1
 		for i, candwin := range column.Windows {

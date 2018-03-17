@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"sync"
 
 	"github.com/BurntSushi/xgb/xinerama"
 	"github.com/BurntSushi/xgb/xproto"
@@ -20,8 +19,6 @@ type Workspace struct {
 	columns []Column
 
 	maximizedWindow *xproto.Window
-
-	mu *sync.Mutex
 }
 
 var workspaces map[string]*Workspace
@@ -51,9 +48,6 @@ func (w *Workspace) Add(win xproto.Window) error {
 	).Check(); err != nil {
 		return err
 	}
-
-	w.mu.Lock()
-	defer w.mu.Unlock()
 
 	switch len(w.columns) {
 	case 0:
@@ -163,9 +157,6 @@ func (c Column) TileColumn(xstart, colwidth, colheight uint32) error {
 // RemoveWindow removes a window from the workspace. It returns
 // an error if the window is not being managed by w.
 func (wp *Workspace) RemoveWindow(w xproto.Window) error {
-	wp.mu.Lock()
-	defer wp.mu.Unlock()
-
 	for colnum, column := range wp.columns {
 		idx := -1
 		for i, candwin := range column.Windows {

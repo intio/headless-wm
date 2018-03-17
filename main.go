@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"log"
+	"os"
 	"os/exec"
 	"sync"
 	"time"
@@ -15,7 +16,7 @@ import (
 
 var xc *xgb.Conn
 var xroot xproto.ScreenInfo
-var QuitSignal error = errors.New("Quit")
+var errorQuit error = errors.New("Quit")
 var keymap [256][]xproto.Keysym
 var attachedScreens []xinerama.ScreenInfo
 
@@ -31,16 +32,27 @@ type Grab struct {
 	sym       xproto.Keysym
 	modifiers uint16
 	codes     []xproto.Keycode
+	callback  func() error
 }
 
 var grabs = []Grab{
 	{
 		sym:       keysym.XK_BackSpace,
 		modifiers: xproto.ModMaskControl | xproto.ModMask1,
+		callback:  func() error { return errorQuit },
 	},
 	{
 		sym:       keysym.XK_e,
 		modifiers: xproto.ModMask1,
+		callback: func() error {
+			go func() {
+				cmd := exec.Command("x-terminal-emulator")
+				if err := cmd.Start(); err == nil {
+					cmd.Wait()
+				}
+			}()
+			return nil
+		},
 	},
 	{
 		sym:       keysym.XK_q,
@@ -220,8 +232,14 @@ eventloop:
 		}
 		switch e := xev.(type) {
 		case xproto.KeyPressEvent:
-			if err := HandleKeyPressEvent(e); err != nil {
-				break eventloop
+			err := HandleKeyPressEvent(e)
+			switch err {
+			case nil:
+				continue eventloop
+			case errorQuit:
+				os.Exit(0)
+			default:
+				log.Fatal(err)
 			}
 		case xproto.DestroyNotifyEvent:
 			for _, w := range workspaces {
@@ -315,25 +333,17 @@ func TakeWMOwnership() error {
 				xproto.EventMaskSubstructureRedirect,
 		}).Check()
 }
+
 func HandleKeyPressEvent(key xproto.KeyPressEvent) error {
+	for _, grab := range grabs {
+		if grab.modifiers == key.State &&
+			grab.sym == keymap[key.Detail][0] &&
+			grab.callback != nil {
+			return grab.callback()
+		}
+	}
+
 	switch keymap[key.Detail][0] {
-	case keysym.XK_BackSpace:
-		if (key.State&xproto.ModMaskControl != 0) && (key.State&xproto.ModMask1 != 0) {
-			return QuitSignal
-		}
-		return nil
-	case keysym.XK_e:
-		if key.State&xproto.ModMask1 != 0 {
-			go func() {
-				cmd := exec.Command("x-terminal-emulator")
-				if err := cmd.Start(); err != nil {
-					return
-				}
-				cmd.Wait()
-			}()
-			return nil
-		}
-		return nil
 	case keysym.XK_q:
 		switch key.State {
 		case xproto.ModMask1:
@@ -637,6 +647,7 @@ func HandleKeyPressEvent(key xproto.KeyPressEvent) error {
 		return nil
 	}
 }
+
 func getAtom(name string) xproto.Atom {
 	rply, err := xproto.InternAtom(xc, false, uint16(len(name)), name).Reply()
 	if err != nil {

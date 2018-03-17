@@ -64,22 +64,76 @@ var grabs = []Grab{
 		modifiers: xproto.ModMask1 | xproto.ModMaskShift,
 		callback:  quitWindowForcefully,
 	},
+
 	{
 		sym:       keysym.XK_h,
 		modifiers: xproto.ModMask1,
+		callback: func() error {
+			if activeWindow == nil {
+				return nil
+			}
+			for _, wp := range workspaces {
+				go func(wp *Workspace) {
+					if err := wp.Left(ManagedWindow{*activeWindow, 0}); err == nil {
+						wp.TileWindows()
+					}
+				}(wp)
+			}
+			return nil
+		},
 	},
 	{
 		sym:       keysym.XK_j,
 		modifiers: xproto.ModMask1,
+		callback: func() error {
+			if activeWindow == nil {
+				return nil
+			}
+			for _, wp := range workspaces {
+				go func(wp *Workspace) {
+					if err := wp.Down(ManagedWindow{*activeWindow, 0}); err == nil {
+						wp.TileWindows()
+					}
+				}(wp)
+			}
+			return nil
+		},
 	},
 	{
 		sym:       keysym.XK_k,
 		modifiers: xproto.ModMask1,
+		callback: func() error {
+			if activeWindow == nil {
+				return nil
+			}
+			for _, wp := range workspaces {
+				go func(wp *Workspace) {
+					if err := wp.Up(ManagedWindow{*activeWindow, 0}); err == nil {
+						wp.TileWindows()
+					}
+				}(wp)
+			}
+			return nil
+		},
 	},
 	{
 		sym:       keysym.XK_l,
 		modifiers: xproto.ModMask1,
+		callback: func() error {
+			if activeWindow == nil {
+				return nil
+			}
+			for _, wp := range workspaces {
+				go func(wp *Workspace) {
+					if err := wp.Right(ManagedWindow{*activeWindow, 0}); err == nil {
+						wp.TileWindows()
+					}
+				}(wp)
+			}
+			return nil
+		},
 	},
+
 	{
 		sym:       keysym.XK_Up,
 		modifiers: xproto.ModMaskControl | xproto.ModMask1,
@@ -400,72 +454,7 @@ func HandleKeyPressEvent(key xproto.KeyPressEvent) error {
 	}
 
 	switch keymap[key.Detail][0] {
-	case keysym.XK_h:
-		if activeWindow == nil {
-			return nil
-		}
 
-		switch key.State {
-		case xproto.ModMask1:
-			for _, wp := range workspaces {
-				go func(wp *Workspace) {
-					if err := wp.Left(ManagedWindow{*activeWindow, 0}); err == nil {
-						wp.TileWindows()
-					}
-				}(wp)
-			}
-		}
-
-		return nil
-	case keysym.XK_j:
-		if activeWindow == nil {
-			return nil
-		}
-
-		switch key.State {
-		case xproto.ModMask1:
-			for _, wp := range workspaces {
-				go func(wp *Workspace) {
-					if err := wp.Down(ManagedWindow{*activeWindow, 0}); err == nil {
-						wp.TileWindows()
-					}
-				}(wp)
-			}
-		}
-		return nil
-	case keysym.XK_k:
-		if activeWindow == nil {
-			return nil
-		}
-
-		switch key.State {
-		case xproto.ModMask1:
-			for _, wp := range workspaces {
-				go func(wp *Workspace) {
-					if err := wp.Up(ManagedWindow{*activeWindow, 0}); err == nil {
-						wp.TileWindows()
-					}
-				}(wp)
-			}
-
-		}
-		return nil
-	case keysym.XK_l:
-		if activeWindow == nil {
-			return nil
-		}
-
-		switch key.State {
-		case xproto.ModMask1:
-			for _, wp := range workspaces {
-				go func(wp *Workspace) {
-					if err := wp.Right(ManagedWindow{*activeWindow, 0}); err == nil {
-						wp.TileWindows()
-					}
-				}(wp)
-			}
-		}
-		return nil
 	case keysym.XK_Up:
 		if activeWindow == nil {
 			return nil

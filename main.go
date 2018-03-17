@@ -26,6 +26,76 @@ var (
 	atomWMTakeFocus    xproto.Atom
 )
 
+// Grab represents a key grab and its callback
+type Grab struct {
+	sym       xproto.Keysym
+	modifiers uint16
+	codes     []xproto.Keycode
+}
+
+var grabs = []Grab{
+	{
+		sym:       keysym.XK_BackSpace,
+		modifiers: xproto.ModMaskControl | xproto.ModMask1,
+	},
+	{
+		sym:       keysym.XK_e,
+		modifiers: xproto.ModMask1,
+	},
+	{
+		sym:       keysym.XK_q,
+		modifiers: xproto.ModMask1,
+	},
+	{
+		sym:       keysym.XK_q,
+		modifiers: xproto.ModMask1 | xproto.ModMaskShift,
+	},
+	{
+		sym:       keysym.XK_h,
+		modifiers: xproto.ModMask1,
+	},
+	{
+		sym:       keysym.XK_j,
+		modifiers: xproto.ModMask1,
+	},
+	{
+		sym:       keysym.XK_k,
+		modifiers: xproto.ModMask1,
+	},
+	{
+		sym:       keysym.XK_l,
+		modifiers: xproto.ModMask1,
+	},
+	{
+		sym:       keysym.XK_Up,
+		modifiers: xproto.ModMaskControl | xproto.ModMask1,
+	},
+	{
+		sym:       keysym.XK_Down,
+		modifiers: xproto.ModMaskControl | xproto.ModMask1,
+	},
+	{
+		sym:       keysym.XK_Left,
+		modifiers: xproto.ModMaskControl | xproto.ModMask1,
+	},
+	{
+		sym:       keysym.XK_Right,
+		modifiers: xproto.ModMaskControl | xproto.ModMask1,
+	},
+	{
+		sym:       keysym.XK_d,
+		modifiers: xproto.ModMaskControl | xproto.ModMaskShift,
+	},
+	{
+		sym:       keysym.XK_n,
+		modifiers: xproto.ModMaskControl | xproto.ModMaskShift,
+	},
+	{
+		sym:       keysym.XK_Return,
+		modifiers: xproto.ModMaskControl | xproto.ModMask1,
+	},
+}
+
 func main() {
 	xcon, err := xgb.NewConn()
 	if err != nil {
@@ -88,72 +158,6 @@ func main() {
 
 	for i := 0; i < hiKey-loKey+1; i++ {
 		keymap[loKey+i] = reply.Keysyms[i*int(reply.KeysymsPerKeycode) : (i+1)*int(reply.KeysymsPerKeycode)]
-	}
-	grabs := []struct {
-		sym       xproto.Keysym
-		modifiers uint16
-		codes     []xproto.Keycode
-	}{
-		{
-			sym:       keysym.XK_BackSpace,
-			modifiers: xproto.ModMaskControl | xproto.ModMask1,
-		},
-		{
-			sym:       keysym.XK_e,
-			modifiers: xproto.ModMask1,
-		},
-		{
-			sym:       keysym.XK_q,
-			modifiers: xproto.ModMask1,
-		},
-		{
-			sym:       keysym.XK_q,
-			modifiers: xproto.ModMask1 | xproto.ModMaskShift,
-		},
-		{
-			sym:       keysym.XK_h,
-			modifiers: xproto.ModMask1,
-		},
-		{
-			sym:       keysym.XK_j,
-			modifiers: xproto.ModMask1,
-		},
-		{
-			sym:       keysym.XK_k,
-			modifiers: xproto.ModMask1,
-		},
-		{
-			sym:       keysym.XK_l,
-			modifiers: xproto.ModMask1,
-		},
-		{
-			sym:       keysym.XK_Up,
-			modifiers: xproto.ModMaskControl | xproto.ModMask1,
-		},
-		{
-			sym:       keysym.XK_Down,
-			modifiers: xproto.ModMaskControl | xproto.ModMask1,
-		},
-		{
-			sym:       keysym.XK_Left,
-			modifiers: xproto.ModMaskControl | xproto.ModMask1,
-		},
-		{
-			sym:       keysym.XK_Right,
-			modifiers: xproto.ModMaskControl | xproto.ModMask1,
-		},
-		{
-			sym:       keysym.XK_d,
-			modifiers: xproto.ModMaskControl | xproto.ModMaskShift,
-		},
-		{
-			sym:       keysym.XK_n,
-			modifiers: xproto.ModMaskControl | xproto.ModMaskShift,
-		},
-		{
-			sym:       keysym.XK_Return,
-			modifiers: xproto.ModMaskControl | xproto.ModMask1,
-		},
 	}
 
 	for i, syms := range keymap {

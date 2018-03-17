@@ -159,7 +159,7 @@ func quitWindowGracefully() error {
 		}
 	}
 	for v := prop.Value; len(v) >= 4; v = v[4:] {
-		switch xproto.Atom(uint32(v[0]) | uint32(v[1])<<8 | uint32(v[2])<<16 | uint32(v[3])<<24) {
+		switch decodeAtom(v) {
 		case atomWMDeleteWindow:
 			t := time.Now().Unix()
 			return xproto.SendEventChecked(
@@ -421,7 +421,7 @@ eventloop:
 			if err == nil {
 			TakeFocusPropLoop:
 				for v := prop.Value; len(v) >= 4; v = v[4:] {
-					switch xproto.Atom(uint32(v[0]) | uint32(v[1])<<8 | uint32(v[2])<<16 | uint32(v[3])<<24) {
+					switch decodeAtom(v) {
 					case atomWMTakeFocus:
 						xproto.SendEventChecked(
 							xc,
@@ -490,4 +490,10 @@ func getAtom(name string) xproto.Atom {
 		return 0
 	}
 	return rply.Atom
+}
+
+// decodeAtom decodes an xproto.Atom from a property value (expressed
+// as bytes). Note that v has to be at least 4 bytes long.
+func decodeAtom(v []byte) xproto.Atom {
+	return xproto.Atom(uint32(v[0]) | uint32(v[1])<<8 | uint32(v[2])<<16 | uint32(v[3])<<24)
 }

@@ -1,4 +1,4 @@
-package keysym
+package main
 
 // Known KeySyms from /usr/include/X11/keysymdef.h
 const (

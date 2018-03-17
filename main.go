@@ -10,7 +10,6 @@ import (
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xinerama"
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/driusan/dewm/keysym"
 )
 
 var xc *xgb.Conn
@@ -36,12 +35,12 @@ type Grab struct {
 
 var grabs = []Grab{
 	{
-		sym:       keysym.XK_q,
+		sym:       XK_q,
 		modifiers: xproto.ModMaskControl | xproto.ModMaskShift | xproto.ModMask1,
 		callback:  func() error { return errorQuit },
 	},
 	{
-		sym:       keysym.XK_Return,
+		sym:       XK_Return,
 		modifiers: xproto.ModMask1,
 		callback: func() error {
 			go func() {
@@ -54,18 +53,18 @@ var grabs = []Grab{
 		},
 	},
 	{
-		sym:       keysym.XK_q,
+		sym:       XK_q,
 		modifiers: xproto.ModMask1,
 		callback:  quitWindowGracefully,
 	},
 	{
-		sym:       keysym.XK_q,
+		sym:       XK_q,
 		modifiers: xproto.ModMask1 | xproto.ModMaskShift,
 		callback:  quitWindowForcefully,
 	},
 
 	{
-		sym:       keysym.XK_h,
+		sym:       XK_h,
 		modifiers: xproto.ModMask1,
 		callback: func() error {
 			if activeWindow == nil {
@@ -80,7 +79,7 @@ var grabs = []Grab{
 		},
 	},
 	{
-		sym:       keysym.XK_j,
+		sym:       XK_j,
 		modifiers: xproto.ModMask1,
 		callback: func() error {
 			if activeWindow == nil {
@@ -95,7 +94,7 @@ var grabs = []Grab{
 		},
 	},
 	{
-		sym:       keysym.XK_k,
+		sym:       XK_k,
 		modifiers: xproto.ModMask1,
 		callback: func() error {
 			if activeWindow == nil {
@@ -110,7 +109,7 @@ var grabs = []Grab{
 		},
 	},
 	{
-		sym:       keysym.XK_l,
+		sym:       XK_l,
 		modifiers: xproto.ModMask1,
 		callback: func() error {
 			if activeWindow == nil {
@@ -126,17 +125,17 @@ var grabs = []Grab{
 	},
 
 	{
-		sym:       keysym.XK_d,
+		sym:       XK_d,
 		modifiers: xproto.ModMask1,
 		callback:  cleanupColumns,
 	},
 	{
-		sym:       keysym.XK_n,
+		sym:       XK_n,
 		modifiers: xproto.ModMask1,
 		callback:  addColumn,
 	},
 	{
-		sym:       keysym.XK_m,
+		sym:       XK_m,
 		modifiers: xproto.ModMask1,
 		callback:  maximizeActiveWindow,
 	},

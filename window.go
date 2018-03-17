@@ -11,11 +11,9 @@ import (
 
 type ManagedWindow struct {
 	xproto.Window
-	SizeDelta int
 }
 type Column struct {
-	Windows   []ManagedWindow
-	SizeDelta int
+	Windows []ManagedWindow
 }
 type Workspace struct {
 	Screen  *xinerama.ScreenInfo
@@ -60,21 +58,21 @@ func (w *Workspace) Add(win xproto.Window) error {
 	switch len(w.columns) {
 	case 0:
 		w.columns = []Column{
-			Column{Windows: []ManagedWindow{ManagedWindow{win, 0}}, SizeDelta: 0},
+			Column{Windows: []ManagedWindow{ManagedWindow{win}}},
 		}
 	default:
 		// Add to the first empty column we can find, and shortcircuit out
 		// if applicable.
 		for i, c := range w.columns {
 			if len(c.Windows) == 0 {
-				w.columns[i].Windows = append(w.columns[i].Windows, ManagedWindow{win, 0})
+				w.columns[i].Windows = append(w.columns[i].Windows, ManagedWindow{win})
 				return nil
 			}
 		}
 
 		// No empty columns, add to the last one.
 		i := len(w.columns) - 1
-		w.columns[i].Windows = append(w.columns[i].Windows, ManagedWindow{win, 0})
+		w.columns[i].Windows = append(w.columns[i].Windows, ManagedWindow{win})
 	}
 	return nil
 }
@@ -110,27 +108,19 @@ func (w *Workspace) TileWindows() error {
 	if n == 0 {
 		return fmt.Errorf("No columns to tile")
 	}
-	var totalDeltas int
-	for _, c := range w.columns {
-		totalDeltas += c.SizeDelta
-	}
 
-	size := uint32(int(w.Screen.Width)-totalDeltas) / n
+	size := uint32(w.Screen.Width) / n
 	var err error
 
-	// Keep track of the already incorporated deltas, to add to xstart
-	// for the column.TileWindow call
-	usedDeltas := 0
 	prevWin := activeWindow
 	for i, c := range w.columns {
 		if err != nil {
 			// Don't overwrite err if there's an error, but still
 			// tile the rest of the columns instead of returning.
-			c.TileColumn(uint32((i*int(size))+usedDeltas), uint32(int(size)+c.SizeDelta), uint32(w.Screen.Height))
+			c.TileColumn(uint32(i)*size, size, uint32(w.Screen.Height))
 		} else {
-			err = c.TileColumn(uint32((i*int(size))+usedDeltas), uint32(int(size)+c.SizeDelta), uint32(w.Screen.Height))
+			err = c.TileColumn(uint32(i)*size, size, uint32(w.Screen.Height))
 		}
-		usedDeltas += c.SizeDelta
 	}
 	if prevWin != nil {
 		if err := xproto.WarpPointerChecked(xc, 0, *prevWin, 0, 0, 0, 0, 10, 10).Check(); err != nil {
@@ -148,13 +138,7 @@ func (c Column) TileColumn(xstart, colwidth, colheight uint32) error {
 		return nil
 	}
 
-	var totalDeltas int
-	for _, win := range c.Windows {
-		totalDeltas += win.SizeDelta
-	}
-
-	heightBase := (int(colheight) - totalDeltas) / int(n)
-	usedDeltas := 0
+	heightBase := colheight / n
 	var err error
 	for i, win := range c.Windows {
 		if werr := xproto.ConfigureWindowChecked(
@@ -166,13 +150,12 @@ func (c Column) TileColumn(xstart, colwidth, colheight uint32) error {
 				xproto.ConfigWindowHeight,
 			[]uint32{
 				xstart,
-				uint32((i * heightBase) + usedDeltas),
+				uint32(i) * heightBase,
 				colwidth,
-				uint32(heightBase + win.SizeDelta),
+				uint32(heightBase),
 			}).Check(); werr != nil {
 			err = werr
 		}
-		usedDeltas += win.SizeDelta
 	}
 	return err
 }
@@ -202,7 +185,4 @@ func (wp *Workspace) RemoveWindow(w xproto.Window) error {
 		}
 	}
 	return fmt.Errorf("Window not managed by workspace")
-}
-func (w *ManagedWindow) Resize(delta int) {
-	w.SizeDelta += delta
 }

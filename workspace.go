@@ -103,9 +103,7 @@ func (wp *Workspace) Right(w ManagedWindow) error {
 	}
 	return fmt.Errorf("Window not managed by workspace")
 }
-func (c *Column) Resize(delta int) {
-	c.SizeDelta += delta
-}
+
 func (w *Workspace) ContainsWindow(win xproto.Window) bool {
 	for _, c := range w.columns {
 		for _, w := range c.Windows {

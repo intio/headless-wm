@@ -74,7 +74,7 @@ var grabs = []Grab{
 			}
 			for _, wp := range workspaces {
 				go func(wp *Workspace) {
-					if err := wp.Left(ManagedWindow{*activeWindow, 0}); err == nil {
+					if err := wp.Left(ManagedWindow{*activeWindow}); err == nil {
 						wp.TileWindows()
 					}
 				}(wp)
@@ -91,7 +91,7 @@ var grabs = []Grab{
 			}
 			for _, wp := range workspaces {
 				go func(wp *Workspace) {
-					if err := wp.Down(ManagedWindow{*activeWindow, 0}); err == nil {
+					if err := wp.Down(ManagedWindow{*activeWindow}); err == nil {
 						wp.TileWindows()
 					}
 				}(wp)
@@ -108,7 +108,7 @@ var grabs = []Grab{
 			}
 			for _, wp := range workspaces {
 				go func(wp *Workspace) {
-					if err := wp.Up(ManagedWindow{*activeWindow, 0}); err == nil {
+					if err := wp.Up(ManagedWindow{*activeWindow}); err == nil {
 						wp.TileWindows()
 					}
 				}(wp)
@@ -125,7 +125,7 @@ var grabs = []Grab{
 			}
 			for _, wp := range workspaces {
 				go func(wp *Workspace) {
-					if err := wp.Right(ManagedWindow{*activeWindow, 0}); err == nil {
+					if err := wp.Right(ManagedWindow{*activeWindow}); err == nil {
 						wp.TileWindows()
 					}
 				}(wp)
@@ -134,22 +134,6 @@ var grabs = []Grab{
 		},
 	},
 
-	{
-		sym:       keysym.XK_Up,
-		modifiers: xproto.ModMaskControl | xproto.ModMask1,
-	},
-	{
-		sym:       keysym.XK_Down,
-		modifiers: xproto.ModMaskControl | xproto.ModMask1,
-	},
-	{
-		sym:       keysym.XK_Left,
-		modifiers: xproto.ModMaskControl | xproto.ModMask1,
-	},
-	{
-		sym:       keysym.XK_Right,
-		modifiers: xproto.ModMaskControl | xproto.ModMask1,
-	},
 	{
 		sym:       keysym.XK_d,
 		modifiers: xproto.ModMaskControl | xproto.ModMaskShift,
@@ -454,123 +438,6 @@ func HandleKeyPressEvent(key xproto.KeyPressEvent) error {
 	}
 
 	switch keymap[key.Detail][0] {
-
-	case keysym.XK_Up:
-		if activeWindow == nil {
-			return nil
-		}
-
-		switch key.State {
-		case xproto.ModMaskControl | xproto.ModMask1:
-			for _, wp := range workspaces {
-				go func(wp *Workspace) {
-					for _, c := range wp.columns {
-						for i, win := range c.Windows {
-							if win.Window == *activeWindow {
-								if i == 0 {
-									c.Windows[i].Resize(-10)
-									wp.TileWindows()
-								} else {
-									c.Windows[i].Resize(10)
-									wp.TileWindows()
-								}
-								return
-							}
-						}
-					}
-				}(wp)
-			}
-		default:
-			log.Printf("Unhandled state: %v\n", key.State)
-		}
-		return nil
-	case keysym.XK_Down:
-		if activeWindow == nil {
-			return nil
-		}
-
-		switch key.State {
-		case xproto.ModMaskControl | xproto.ModMask1:
-			for _, wp := range workspaces {
-				go func(wp *Workspace) {
-					for _, c := range wp.columns {
-						for i, win := range c.Windows {
-							if win.Window == *activeWindow {
-								if i == 0 {
-									c.Windows[i].Resize(10)
-									wp.TileWindows()
-								} else {
-									c.Windows[i].Resize(-10)
-									wp.TileWindows()
-								}
-								return
-							}
-						}
-					}
-				}(wp)
-			}
-		default:
-			log.Printf("Unhandled state: %v\n", key.State)
-		}
-		return nil
-	case keysym.XK_Left:
-		if activeWindow == nil {
-			return nil
-		}
-
-		switch key.State {
-		case xproto.ModMaskControl | xproto.ModMask1:
-			for _, wp := range workspaces {
-				go func(wp *Workspace) {
-					for i, c := range wp.columns {
-						for _, win := range c.Windows {
-							if win.Window == *activeWindow {
-								if i == 0 {
-									wp.columns[i].Resize(-10)
-									wp.TileWindows()
-								} else {
-									wp.columns[i].Resize(10)
-									wp.TileWindows()
-								}
-								return
-							}
-						}
-					}
-				}(wp)
-			}
-		default:
-			log.Printf("Unhandled state: %v\n", key.State)
-		}
-		return nil
-	case keysym.XK_Right:
-		if activeWindow == nil {
-			return nil
-		}
-
-		switch key.State {
-		case xproto.ModMaskControl | xproto.ModMask1:
-			for _, wp := range workspaces {
-				go func(wp *Workspace) {
-					for i, c := range wp.columns {
-						for _, win := range c.Windows {
-							if win.Window == *activeWindow {
-								if i == 0 {
-									wp.columns[i].Resize(10)
-									wp.TileWindows()
-								} else {
-									wp.columns[i].Resize(-10)
-									wp.TileWindows()
-								}
-								return
-							}
-						}
-					}
-				}(wp)
-			}
-		default:
-			log.Printf("Unhandled state: %v\n", key.State)
-		}
-		return nil
 	case keysym.XK_d:
 		switch key.State {
 		case xproto.ModMaskControl | xproto.ModMaskShift:

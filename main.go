@@ -320,12 +320,14 @@ func HandleKeyPressEvent(key xproto.KeyPressEvent) error {
 		return nil
 	case keysym.XK_e:
 		if key.State&xproto.ModMask1 != 0 {
-			cmd := exec.Command("xterm")
-			err := cmd.Start()
 			go func() {
+				cmd := exec.Command("x-terminal-emulator")
+				if err := cmd.Start(); err != nil {
+					return
+				}
 				cmd.Wait()
 			}()
-			return err
+			return nil
 		}
 		return nil
 	case keysym.XK_q:

@@ -389,9 +389,8 @@ eventloop:
 			}
 			if activeWindow != nil && e.Window == *activeWindow {
 				activeWindow = nil
-				if _, err := xproto.SetInputFocusChecked(xc, xproto.InputFocusPointerRoot, xroot.Root, xproto.TimeCurrentTime).Reply(); err != nil {
-					log.Println(err)
-				}
+				// Cannot call 'replyChecked' on a cookie that is not expecting a *reply* or an error.
+				xproto.SetInputFocus(xc, xproto.InputFocusPointerRoot, xroot.Root, xproto.TimeCurrentTime)
 			}
 		case xproto.ConfigureRequestEvent:
 			ev := xproto.ConfigureNotifyEvent{
@@ -447,9 +446,8 @@ eventloop:
 				}
 			}
 			if !focused {
-				if _, err := xproto.SetInputFocusChecked(xc, xproto.InputFocusPointerRoot, e.Event, e.Time).Reply(); err != nil {
-					log.Println(err)
-				}
+				// Cannot call 'replyChecked' on a cookie that is not expecting a *reply* or an error.
+				xproto.SetInputFocus(xc, xproto.InputFocusPointerRoot, e.Event, e.Time)
 			}
 		default:
 			log.Println(xev)

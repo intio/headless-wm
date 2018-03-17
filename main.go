@@ -37,12 +37,12 @@ type Grab struct {
 
 var grabs = []Grab{
 	{
-		sym:       keysym.XK_BackSpace,
-		modifiers: xproto.ModMaskControl | xproto.ModMask1,
+		sym:       keysym.XK_q,
+		modifiers: xproto.ModMaskControl | xproto.ModMaskShift | xproto.ModMask1,
 		callback:  func() error { return errorQuit },
 	},
 	{
-		sym:       keysym.XK_e,
+		sym:       keysym.XK_Return,
 		modifiers: xproto.ModMask1,
 		callback: func() error {
 			go func() {
@@ -136,15 +136,18 @@ var grabs = []Grab{
 
 	{
 		sym:       keysym.XK_d,
-		modifiers: xproto.ModMaskControl | xproto.ModMaskShift,
+		modifiers: xproto.ModMask1,
+		callback:  cleanupColumns,
 	},
 	{
 		sym:       keysym.XK_n,
-		modifiers: xproto.ModMaskControl | xproto.ModMaskShift,
+		modifiers: xproto.ModMask1,
+		callback:  addColumn,
 	},
 	{
-		sym:       keysym.XK_Return,
-		modifiers: xproto.ModMaskControl | xproto.ModMask1,
+		sym:       keysym.XK_m,
+		modifiers: xproto.ModMask1,
+		callback:  maximizeActiveWindow,
 	},
 }
 
@@ -198,6 +201,64 @@ func quitWindowGracefully() error {
 func quitWindowForcefully() error {
 	if activeWindow != nil {
 		return xproto.DestroyWindowChecked(xc, *activeWindow).Check()
+	}
+	return nil
+}
+
+func cleanupColumns() error {
+	for _, w := range workspaces {
+		if w.IsActive() {
+			w.mu.Lock()
+			newColumns := make([]Column, 0, len(w.columns))
+			for _, c := range w.columns {
+				if len(c.Windows) > 0 {
+					newColumns = append(newColumns, c)
+				}
+			}
+			// Don't bother using the newColumns if it didn't change
+			// anything. Just let newColumns get GCed.
+			if len(newColumns) != len(w.columns) {
+				w.columns = newColumns
+				w.TileWindows()
+			}
+			w.mu.Unlock()
+		}
+	}
+	return nil
+}
+
+func addColumn() error {
+	for _, w := range workspaces {
+		if w.IsActive() {
+			w.mu.Lock()
+			w.columns = append(w.columns, Column{})
+			w.mu.Unlock()
+			w.TileWindows()
+		}
+	}
+	return nil
+}
+
+func maximizeActiveWindow() error {
+	for _, w := range workspaces {
+		go func(w *Workspace) {
+			if w.IsActive() {
+				if w.maximizedWindow == nil {
+					w.maximizedWindow = activeWindow
+				} else {
+					if err := xproto.ConfigureWindowChecked(
+						xc,
+						*w.maximizedWindow,
+						xproto.ConfigWindowBorderWidth,
+						[]uint32{2},
+					).Check(); err != nil {
+						log.Print(err)
+					}
+					w.maximizedWindow = nil
+				}
+				w.TileWindows()
+			}
+		}(w)
 	}
 	return nil
 }
@@ -436,76 +497,7 @@ func HandleKeyPressEvent(key xproto.KeyPressEvent) error {
 			return grab.callback()
 		}
 	}
-
-	switch keymap[key.Detail][0] {
-	case keysym.XK_d:
-		switch key.State {
-		case xproto.ModMaskControl | xproto.ModMaskShift:
-			for _, w := range workspaces {
-				if w.IsActive() {
-					w.mu.Lock()
-					newColumns := make([]Column, 0, len(w.columns))
-					for _, c := range w.columns {
-						if len(c.Windows) > 0 {
-							newColumns = append(newColumns, c)
-						}
-					}
-					// Don't bother using the newColumns if it didn't change
-					// anything. Just let newColumns get GCed.
-					if len(newColumns) != len(w.columns) {
-						w.columns = newColumns
-						w.TileWindows()
-					}
-					w.mu.Unlock()
-				}
-			}
-		default:
-			log.Printf("Unhandled state: %v\n", key.State)
-		}
-		return nil
-	case keysym.XK_n:
-		switch key.State {
-		case xproto.ModMaskControl | xproto.ModMaskShift:
-			for _, w := range workspaces {
-				if w.IsActive() {
-					w.mu.Lock()
-					w.columns = append(w.columns, Column{})
-					w.mu.Unlock()
-					w.TileWindows()
-				}
-			}
-		default:
-			log.Printf("Unhandled state: %v\n", key.State)
-		}
-		return nil
-	case keysym.XK_Return:
-		switch key.State {
-		case xproto.ModMaskControl | xproto.ModMask1:
-			for _, w := range workspaces {
-				go func(w *Workspace) {
-					if w.IsActive() {
-						if w.maximizedWindow == nil {
-							w.maximizedWindow = activeWindow
-						} else {
-							if err := xproto.ConfigureWindowChecked(
-								xc,
-								*w.maximizedWindow,
-								xproto.ConfigWindowBorderWidth,
-								[]uint32{2},
-							).Check(); err != nil {
-								log.Print(err)
-							}
-							w.maximizedWindow = nil
-						}
-						w.TileWindows()
-					}
-				}(w)
-			}
-		}
-		return nil
-	default:
-		return nil
-	}
+	return nil
 }
 
 func getAtom(name string) xproto.Atom {

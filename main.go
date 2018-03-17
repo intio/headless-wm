@@ -33,7 +33,7 @@ type Grab struct {
 	callback  func() error
 }
 
-var grabs = []Grab{
+var grabs = []*Grab{
 	{
 		sym:       XK_q,
 		modifiers: xproto.ModMaskControl | xproto.ModMaskShift | xproto.ModMask1,
@@ -71,7 +71,7 @@ var grabs = []Grab{
 				return nil
 			}
 			for _, wp := range workspaces {
-				if err := wp.Left(ManagedWindow{*activeWindow}); err == nil {
+				if err := wp.Left(&ManagedWindow{*activeWindow}); err == nil {
 					wp.TileWindows()
 				}
 			}
@@ -86,7 +86,7 @@ var grabs = []Grab{
 				return nil
 			}
 			for _, wp := range workspaces {
-				if err := wp.Down(ManagedWindow{*activeWindow}); err == nil {
+				if err := wp.Down(&ManagedWindow{*activeWindow}); err == nil {
 					wp.TileWindows()
 				}
 			}
@@ -101,7 +101,7 @@ var grabs = []Grab{
 				return nil
 			}
 			for _, wp := range workspaces {
-				if err := wp.Up(ManagedWindow{*activeWindow}); err == nil {
+				if err := wp.Up(&ManagedWindow{*activeWindow}); err == nil {
 					wp.TileWindows()
 				}
 			}
@@ -116,7 +116,7 @@ var grabs = []Grab{
 				return nil
 			}
 			for _, wp := range workspaces {
-				if err := wp.Right(ManagedWindow{*activeWindow}); err == nil {
+				if err := wp.Right(&ManagedWindow{*activeWindow}); err == nil {
 					wp.TileWindows()
 				}
 			}
@@ -198,7 +198,7 @@ func quitWindowForcefully() error {
 func cleanupColumns() error {
 	for _, w := range workspaces {
 		if w.IsActive() {
-			newColumns := make([]Column, 0, len(w.columns))
+			newColumns := make([]*Column, 0, len(w.columns))
 			for _, c := range w.columns {
 				if len(c.Windows) > 0 {
 					newColumns = append(newColumns, c)
@@ -218,7 +218,7 @@ func cleanupColumns() error {
 func addColumn() error {
 	for _, w := range workspaces {
 		if w.IsActive() {
-			w.columns = append(w.columns, Column{})
+			w.columns = append(w.columns, &Column{})
 			w.TileWindows()
 		}
 	}

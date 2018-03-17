@@ -12,11 +12,11 @@ type ManagedWindow struct {
 	xproto.Window
 }
 type Column struct {
-	Windows []ManagedWindow
+	Windows []*ManagedWindow
 }
 type Workspace struct {
 	Screen  *xinerama.ScreenInfo
-	columns []Column
+	columns []*Column
 
 	maximizedWindow *xproto.Window
 }
@@ -51,22 +51,22 @@ func (w *Workspace) Add(win xproto.Window) error {
 
 	switch len(w.columns) {
 	case 0:
-		w.columns = []Column{
-			Column{Windows: []ManagedWindow{ManagedWindow{win}}},
+		w.columns = []*Column{
+			&Column{Windows: []*ManagedWindow{&ManagedWindow{win}}},
 		}
 	default:
 		// Add to the first empty column we can find, and shortcircuit out
 		// if applicable.
 		for i, c := range w.columns {
 			if len(c.Windows) == 0 {
-				w.columns[i].Windows = append(w.columns[i].Windows, ManagedWindow{win})
+				w.columns[i].Windows = append(w.columns[i].Windows, &ManagedWindow{win})
 				return nil
 			}
 		}
 
 		// No empty columns, add to the last one.
 		i := len(w.columns) - 1
-		w.columns[i].Windows = append(w.columns[i].Windows, ManagedWindow{win})
+		w.columns[i].Windows = append(w.columns[i].Windows, &ManagedWindow{win})
 	}
 	return nil
 }

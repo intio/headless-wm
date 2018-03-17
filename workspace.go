@@ -6,7 +6,7 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 )
 
-func (wp *Workspace) Up(w ManagedWindow) error {
+func (wp *Workspace) Up(w *ManagedWindow) error {
 	for colnum, column := range wp.columns {
 		idx := -1
 		for i, candwin := range column.Windows {
@@ -26,7 +26,7 @@ func (wp *Workspace) Up(w ManagedWindow) error {
 	return fmt.Errorf("Window not managed by workspace")
 }
 
-func (wp *Workspace) Down(w ManagedWindow) error {
+func (wp *Workspace) Down(w *ManagedWindow) error {
 	for colnum, column := range wp.columns {
 		idx := -1
 		for i, candwin := range column.Windows {
@@ -45,7 +45,7 @@ func (wp *Workspace) Down(w ManagedWindow) error {
 	}
 	return fmt.Errorf("Window not managed by workspace")
 }
-func (wp *Workspace) Left(w ManagedWindow) error {
+func (wp *Workspace) Left(w *ManagedWindow) error {
 	for colnum, column := range wp.columns {
 		idx := -1
 		for i, candwin := range column.Windows {
@@ -68,7 +68,7 @@ func (wp *Workspace) Left(w ManagedWindow) error {
 	}
 	return fmt.Errorf("Window not managed by workspace")
 }
-func (wp *Workspace) Right(w ManagedWindow) error {
+func (wp *Workspace) Right(w *ManagedWindow) error {
 	for colnum, column := range wp.columns {
 		idx := -1
 		for i, candwin := range column.Windows {

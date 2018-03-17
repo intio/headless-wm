@@ -333,6 +333,10 @@ func HandleKeyPressEvent(key xproto.KeyPressEvent) error {
 	case keysym.XK_q:
 		switch key.State {
 		case xproto.ModMask1:
+			if activeWindow == nil {
+				log.Println("Tried to close window, but no active window")
+				return nil
+			}
 			prop, err := xproto.GetProperty(xc, false, *activeWindow, atomWMProtocols,
 				xproto.GetPropertyTypeAny, 0, 64).Reply()
 			if err != nil {

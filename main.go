@@ -249,11 +249,11 @@ func maximizeActiveWindow() error {
 }
 
 func main() {
-	xcon, err := xgb.NewConn()
+	var err error
+	xc, err = xgb.NewConn()
 	if err != nil {
 		log.Fatal(err)
 	}
-	xc = xcon
 	defer xc.Close()
 	setup := xproto.Setup(xc)
 	if setup == nil || len(setup.Roots) < 1 {

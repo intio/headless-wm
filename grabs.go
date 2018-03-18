@@ -106,18 +106,18 @@ func (wm *WM) initKeys() {
 		wm.keymap[loKey+i] = reply.Keysyms[i*int(reply.KeysymsPerKeycode) : (i+1)*int(reply.KeysymsPerKeycode)]
 	}
 
-	grabs := wm.getGrabs()
+	wm.grabs = wm.getGrabs()
 
 	for i, syms := range wm.keymap {
 		for _, sym := range syms {
-			for c := range grabs {
-				if grabs[c].sym == sym {
-					grabs[c].codes = append(grabs[c].codes, xproto.Keycode(i))
+			for c := range wm.grabs {
+				if wm.grabs[c].sym == sym {
+					wm.grabs[c].codes = append(wm.grabs[c].codes, xproto.Keycode(i))
 				}
 			}
 		}
 	}
-	for _, grabbed := range grabs {
+	for _, grabbed := range wm.grabs {
 		for _, code := range grabbed.codes {
 			if err := xproto.GrabKeyChecked(
 				xc,

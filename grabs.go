@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"errors"
 	"os/exec"
 
 	"github.com/BurntSushi/xgb/xproto"
@@ -87,7 +87,7 @@ func (wm *WM) getGrabs() []*Grab {
 	}
 }
 
-func (wm *WM) initKeys() {
+func (wm *WM) initKeys() error {
 	const (
 		loKey = 8
 		hiKey = 255
@@ -96,10 +96,10 @@ func (wm *WM) initKeys() {
 	m := xproto.GetKeyboardMapping(wm.xc, loKey, hiKey-loKey+1)
 	reply, err := m.Reply()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if reply == nil {
-		log.Fatal("Could not load keyboard map")
+		return errors.New("Could not load keyboard map")
 	}
 
 	for i := 0; i < hiKey-loKey+1; i++ {
@@ -128,11 +128,12 @@ func (wm *WM) initKeys() {
 				xproto.GrabModeAsync,
 				xproto.GrabModeAsync,
 			).Check(); err != nil {
-				log.Print(err)
+				return err
 			}
 
 		}
 	}
+	return nil
 }
 
 func (wm *WM) cleanupColumns() error {

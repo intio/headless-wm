@@ -4,13 +4,12 @@ import (
 	"errors"
 	"log"
 	"os"
-
-	"github.com/BurntSushi/xgb"
-	"github.com/BurntSushi/xgb/xinerama"
-	"github.com/BurntSushi/xgb/xproto"
 )
 
-var errorQuit error = errors.New("Quit")
+var (
+	errorQuit      = errors.New("Quit")
+	errorAnotherWM = errors.New("Another WM already running")
+)
 
 func (wm *WM) closeClientGracefully() error {
 	if wm.activeClient == nil {
@@ -28,114 +27,16 @@ func (wm *WM) closeClientForcefully() error {
 	return wm.activeClient.CloseForcefully()
 }
 
-func (wm *WM) initScreens() {
-	setup := xproto.Setup(wm.xc)
-	if setup == nil || len(setup.Roots) < 1 {
-		log.Fatal("Could not parse SetupInfo.")
-	}
-	if err := xinerama.Init(wm.xc); err != nil {
-		log.Fatal(err)
-	}
-	if r, err := xinerama.QueryScreens(wm.xc).Reply(); err != nil {
-		log.Fatal(err)
-	} else {
-		if len(r.ScreenInfo) == 0 {
-			// If Xinerama does not return useful information, we can
-			// still query the root window, and create a fake
-			// ScreenInfo structure.
-			wm.attachedScreens = []xinerama.ScreenInfo{
-				xinerama.ScreenInfo{
-					Width:  setup.Roots[0].WidthInPixels,
-					Height: setup.Roots[0].HeightInPixels,
-				},
-			}
-		} else {
-			wm.attachedScreens = r.ScreenInfo
-		}
-	}
-
-	coninfo := xproto.Setup(wm.xc)
-	if coninfo == nil {
-		log.Fatal("Could not parse X connection info")
-	}
-	if len(coninfo.Roots) != 1 {
-		log.Fatal("Bad number of roots. Did Xinerama initialize correctly?")
-	}
-	wm.xroot = coninfo.Roots[0]
-}
-
-func (wm *WM) initWM() {
-	err := xproto.ChangeWindowAttributesChecked(
-		wm.xc,
-		wm.xroot.Root,
-		xproto.CwEventMask,
-		[]uint32{
-			xproto.EventMaskKeyPress |
-				xproto.EventMaskKeyRelease |
-				xproto.EventMaskButtonPress |
-				xproto.EventMaskButtonRelease |
-				xproto.EventMaskStructureNotify |
-				xproto.EventMaskSubstructureRedirect,
-		},
-	).Check()
-	if err != nil {
-		if _, ok := err.(xproto.AccessError); ok {
-			log.Fatal("Could not become the WM. Is another WM already running?")
-		}
-		log.Fatal(err)
-	}
-}
-
-func (wm *WM) initWorkspaces() {
-	tree, err := xproto.QueryTree(wm.xc, wm.xroot.Root).Reply()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if tree != nil {
-		w := wm.GetActiveWorkspace()
-		for _, win := range tree.Children {
-			if c, err := NewClient(wm.xc, win); err != nil {
-				log.Println(err)
-			} else {
-				w.AddClient(c)
-			}
-		}
-	}
-	if len(wm.attachedScreens) == 0 {
-		panic("no attached screens!?")
-	}
-	for _, workspace := range wm.workspaces {
-		workspace.Screen = &wm.attachedScreens[0]
-		if err := workspace.Arrange(); err != nil {
-			log.Println(err)
-		}
-	}
-}
-
 func main() {
-	var wm = &WM{
-		workspaces: []*Workspace{
-			&Workspace{
-				Layout: &ColumnLayout{},
-			},
-		},
-	}
-
-	var err error
-	wm.xc, err = xgb.NewConn()
+	var wm = NewWM()
+	err := wm.Init()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer wm.xc.Close()
-
-	wm.initScreens()
-	wm.initAtoms()
-	wm.initWM()
-	wm.initKeys()
-	wm.initWorkspaces()
+	defer wm.Deinit()
 
 	for {
-		err = wm.handleEvent()
+		err := wm.handleEvent()
 		switch err {
 		case errorQuit:
 			os.Exit(0)

@@ -12,10 +12,11 @@ var (
 	atomWMTakeFocus    xproto.Atom
 )
 
-func (wm *WM) initAtoms() {
+func (wm *WM) initAtoms() error {
 	atomWMProtocols = getAtom(wm.xc, "WM_PROTOCOLS")
 	atomWMDeleteWindow = getAtom(wm.xc, "WM_DELETE_WINDOW")
 	atomWMTakeFocus = getAtom(wm.xc, "WM_TAKE_FOCUS")
+	return nil
 }
 
 func getAtom(xc *xgb.Conn, name string) xproto.Atom {

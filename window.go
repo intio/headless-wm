@@ -22,18 +22,33 @@ type Client struct {
 	// StackModeTopIf, StackModeBottomIf, StackModeOpposite.
 	StackMode uint32
 }
-type Column struct {
-	Clients []*Client
-}
-type Workspace struct {
-	Screen  *xinerama.ScreenInfo
-	columns []*Column
 
-	maximizedWindow *xproto.Window
+type ColumnLayout struct {
+	columns [][]*Client
+}
+
+type MonocleLayout struct {
+	clients []*Client
+}
+
+type Workspace struct {
+	Screen *xinerama.ScreenInfo
+	Layout
+}
+
+// Layout arranges clients in a Workspace (e.g. columns, tiles, etc)
+type Layout interface {
+	Arrange(*Workspace)
+	GetClients() []*Client
+	AddClient(*Client)
+	RemoveClient(*Client)
+	MoveClient(*Client, Direction)
 }
 
 var workspaces = map[string]*Workspace{
-	"default": &Workspace{},
+	"default": &Workspace{
+		Layout: &ColumnLayout{},
+	},
 }
 var activeClient *Client
 
@@ -95,152 +110,256 @@ func (c *Client) Configure() error {
 	).Check()
 }
 
-func (w *Workspace) Add(c *Client) {
-	if len(w.columns) == 0 {
-		w.columns = []*Column{&Column{Clients: []*Client{}}}
-	}
-
-	// Add to the first empty column we can find, and shortcircuit out
-	// if applicable.
-	for i, col := range w.columns {
-		if len(col.Clients) == 0 {
-			w.columns[i].Clients = append(w.columns[i].Clients, c)
-			return
-		}
-	}
-
-	// No empty columns, add to the last one.
-	i := len(w.columns) - 1
-	w.columns[i].Clients = append(w.columns[i].Clients, c)
+// WarpPointer puts the mouse pointer inside of this client's window.
+func (c *Client) WarpPointer() error {
+	return xproto.WarpPointerChecked(
+		xc,       // conn
+		0,        // src
+		c.Window, // dst
+		0,        // src x
+		0,        // src x
+		0,        // src w
+		0,        // src h
+		10,       // dst x
+		10,       // dst y
+	).Check()
 }
 
-// Arrange arranges all the windows of the workspace into the screen
-// that the workspace is attached to.
+// AddClient registers the client in this Workspace (and its Layout).
+func (w *Workspace) AddClient(c *Client) {
+	w.Layout.AddClient(c)
+}
+
+// Arrange applies Workspace's Layout to its Clients
 func (w *Workspace) Arrange() error {
 	if w.Screen == nil {
 		return fmt.Errorf("Workspace not attached to a screen.")
 	}
 
-	if w.maximizedWindow != nil {
-		return xproto.ConfigureWindowChecked(
-			xc,
-			*w.maximizedWindow,
-			xproto.ConfigWindowX|
-				xproto.ConfigWindowY|
-				xproto.ConfigWindowWidth|
-				xproto.ConfigWindowHeight|
-				xproto.ConfigWindowBorderWidth|
-				xproto.ConfigWindowStackMode,
-			[]uint32{
-				0,
-				0,
-				uint32(w.Screen.Width),
-				uint32(w.Screen.Height),
-				0,
-				xproto.StackModeAbove,
-			},
-		).Check()
-	}
-	n := uint32(len(w.columns))
-	if n == 0 {
-		return nil
-	}
-
-	size := uint32(w.Screen.Width) / n
-	var err error
-
-	prevWin := activeClient
-	for i, c := range w.columns {
-		if err != nil {
-			// Don't overwrite err if there's an error, but still
-			// tile the rest of the columns instead of returning.
-			c.TileColumn(uint32(i)*size, size, uint32(w.Screen.Height))
-		} else {
-			err = c.TileColumn(uint32(i)*size, size, uint32(w.Screen.Height))
+	w.Layout.Arrange(w)
+	for _, c := range w.Layout.GetClients() {
+		if err := c.Configure(); err != nil {
+			log.Println(err)
 		}
 	}
-	if prevWin != nil {
-		if err := xproto.WarpPointerChecked(
-			xc,             // conn
-			0,              // src
-			prevWin.Window, // dst
-			0,              // src x
-			0,              // src x
-			0,              // src w
-			0,              // src h
-			10,             // dst x
-			10,             // dst y
-		).Check(); err != nil {
-			log.Print(err)
-		}
-	}
-	return err
+	return nil
 }
 
-// TileColumn sends ConfigureWindow messages to tile the Clients using
-// the geometry of the parameters passed
-func (c Column) TileColumn(xstart, colwidth, colheight uint32) error {
-	n := uint32(len(c.Clients))
-	if n == 0 {
-		return nil
+// SetLayout changes the workspace to use the new Layout, preserving
+// the list of registered Clients and its order. Returns the previous
+// layout, with clients removed.
+func (w *Workspace) SetLayout(l Layout) Layout {
+	old := w.Layout
+	for _, c := range old.GetClients() {
+		l.AddClient(c)
 	}
-
-	heightBase := colheight / n
-	var err error
-	for i, win := range c.Clients {
-		if werr := xproto.ConfigureWindowChecked(
-			xc,
-			win.Window,
-			xproto.ConfigWindowX|
-				xproto.ConfigWindowY|
-				xproto.ConfigWindowWidth|
-				xproto.ConfigWindowHeight,
-			[]uint32{
-				xstart,
-				uint32(i) * heightBase,
-				colwidth,
-				uint32(heightBase),
-			}).Check(); werr != nil {
-			err = werr
-		}
+	// Let's take a shortcut :)
+	switch lt := old.(type) {
+	case *MonocleLayout:
+		lt.clients = []*Client{}
+	case *ColumnLayout:
+		lt.columns = [][]*Client{}
 	}
-	return err
+	w.Layout = l
+	return old
 }
 
-// HasWindow reports whether this workspace is managing that window.
-func (wp *Workspace) HasWindow(w xproto.Window) bool {
-	for _, column := range wp.columns {
-		for _, win := range column.Clients {
-			if w == win.Window {
-				return true
-			}
-		}
+// Arrange makes all clients in Workspace maximized.
+func (l *MonocleLayout) Arrange(w *Workspace) {
+	for _, c := range l.clients {
+		c.X = 0
+		c.Y = 0
+		c.W = uint32(w.Screen.Width)
+		c.H = uint32(w.Screen.Height)
+		c.BorderWidth = 0
+		c.StackMode = xproto.StackModeAbove
 	}
-	return false
 }
 
-// RemoveWindow removes a window from the workspace.
-func (wp *Workspace) RemoveWindow(w xproto.Window) {
-	for colnum, column := range wp.columns {
-		idx := -1
-		for i, candwin := range column.Clients {
-			if w == candwin.Window {
-				idx = i
-				break
-			}
-		}
-		if idx != -1 {
-			// Found the window at at idx, so delete it and return.
-			// (I wish Go made it easier to delete from a slice.)
-			wp.columns[colnum].Clients = append(
-				column.Clients[0:idx],
-				column.Clients[idx+1:]...,
-			)
-			if wp.maximizedWindow != nil && w == *wp.maximizedWindow {
-				wp.maximizedWindow = nil
-			}
+// GetClients returns a slice of Client objects managed by this Layout.
+func (l *MonocleLayout) GetClients() []*Client {
+	return append([]*Client{}, l.clients...)
+}
+
+func (l *MonocleLayout) AddClient(c *Client) {
+	l.clients = append(l.clients, c)
+}
+
+// RemoveClient removes a Client from the Layout.
+func (l *MonocleLayout) RemoveClient(c *Client) {
+	for i, cc := range append([]*Client{}, l.clients...) {
+		if c == cc {
+			// Found client at at idx, so delete it and return.
+			l.clients = append(l.clients[0:i], l.clients[i+1:]...)
 			return
 		}
 	}
-	return
+}
+
+// MoveClient does nothing for the MonocleLayout.
+func (l *MonocleLayout) MoveClient(*Client, Direction) {
+}
+
+// Arrange arranges all the windows of the workspace into the screen
+// that the workspace is attached to.
+func (l *ColumnLayout) Arrange(w *Workspace) {
+	nColumns := uint32(len(l.columns))
+
+	// If there are no columns, create one.
+	if nColumns == 0 {
+		l.addColumn()
+		nColumns++
+	}
+
+	colWidth := uint32(w.Screen.Width) / nColumns
+	for columnIdx, column := range l.columns {
+		colHeight := uint32(w.Screen.Height)
+		for rowIdx, client := range column {
+			client.X = uint32(columnIdx) * colWidth
+			client.Y = uint32(uint32(rowIdx) * (colHeight / uint32(len(column))))
+			client.W = colWidth
+			client.H = uint32(colHeight / uint32(len(column)))
+		}
+	}
+}
+
+// GetClients returns a slice of Client objects managed by this Layout.
+func (l *ColumnLayout) GetClients() []*Client {
+	clients := make(
+		[]*Client,
+		0,
+		len(l.columns)*3, // reserve some extra capacity
+	)
+	for _, column := range l.columns {
+		clients = append(clients, column...)
+	}
+	return clients
+}
+
+func (l *ColumnLayout) AddClient(c *Client) {
+	// No columns? Add one
+	if len(l.columns) == 0 {
+		l.addColumn()
+	}
+	// First, look for an empty column to put the client in.
+	for i, column := range l.columns {
+		if len(column) == 0 {
+			l.columns[i] = append(l.columns[i], c)
+			return
+		}
+	}
+	// Failing that, cram the client in the last column.
+	l.columns[len(l.columns)-1] = append(l.columns[len(l.columns)-1], c)
+}
+
+// RemoveClient removes a Client from the Layout.
+func (l *ColumnLayout) RemoveClient(c *Client) {
+	for colIdx, column := range l.columns {
+		for clIdx, cc := range append([]*Client{}, column...) {
+			if c == cc {
+				// Found client at at clIdx, so delete it and return.
+				l.columns[colIdx] = append(
+					column[0:clIdx],
+					column[clIdx+1:]...,
+				)
+				return
+			}
+		}
+	}
+}
+
+func (l *ColumnLayout) cleanupColumns() {
+restart:
+	for {
+		for i, c := range l.columns {
+			if len(c) == 0 {
+				l.columns = append(l.columns[0:i], l.columns[i+1:]...)
+				continue restart
+			}
+		}
+		return
+	}
+}
+
+func (l *ColumnLayout) addColumn() {
+	l.columns = append(l.columns, []*Client{})
+}
+
+// MoveClient moves the client left/right between columns, or up/down
+// within a single column.
+func (l *ColumnLayout) MoveClient(c *Client, d Direction) {
+	switch d {
+	case Up:
+		fallthrough
+	case Down:
+		idx := d.V
+		for _, column := range l.columns {
+			for i, cc := range column {
+				if c == cc {
+					// got ya
+					if i == 0 && idx < 0 {
+						return
+					}
+					if i == (len(column)-1) && idx > 0 {
+						return
+					}
+					column[i], column[i+idx] = column[i+idx], column[i]
+					return
+				}
+			}
+		}
+
+	case Left:
+		fallthrough
+	case Right:
+		idx := d.H
+		for colIdx, column := range l.columns {
+			for clIdx, cc := range column {
+				if c == cc {
+					// got ya
+					if colIdx == 0 && idx < 0 {
+						return
+					}
+					if colIdx == (len(l.columns)-1) && idx > 0 {
+						return
+					}
+					l.columns[colIdx] = append(
+						column[0:clIdx],
+						column[clIdx+1:]...,
+					)
+					l.columns[colIdx+idx] = append(
+						l.columns[colIdx+idx],
+						c,
+					)
+					return
+				}
+			}
+		}
+
+	default:
+		return
+	}
+}
+
+// HasWindow reports whether this workspace is managing that window.
+func (w *Workspace) HasWindow(window xproto.Window) bool {
+	return w.GetClient(window) != nil
+}
+
+// GetClient finds the client corresponding to the given window ID in
+// this Workspace.
+func (w *Workspace) GetClient(window xproto.Window) *Client {
+	for _, c := range w.Layout.GetClients() {
+		if window == c.Window {
+			return c
+		}
+	}
+	return nil
+}
+
+// RemoveWindow removes a window from the workspace.
+func (w *Workspace) RemoveWindow(window xproto.Window) {
+	if c := w.GetClient(window); c != nil {
+		w.Layout.RemoveClient(c)
+	}
 }

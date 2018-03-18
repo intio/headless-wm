@@ -67,77 +67,105 @@ var grabs = []*Grab{
 		sym:       XK_h,
 		modifiers: xproto.ModMask1,
 		callback: func() error {
-			if activeClient == nil {
+			w := getActiveWorkspace()
+			if w == nil || activeClient == nil {
 				return nil
 			}
-			for _, wp := range workspaces {
-				if err := wp.Left(activeClient); err == nil {
-					wp.Arrange()
-				}
-			}
-			return nil
-		},
-	},
-	{
-		sym:       XK_j,
-		modifiers: xproto.ModMask1,
-		callback: func() error {
-			if activeClient == nil {
-				return nil
-			}
-			for _, wp := range workspaces {
-				if err := wp.Down(activeClient); err == nil {
-					wp.Arrange()
-				}
-			}
-			return nil
-		},
-	},
-	{
-		sym:       XK_k,
-		modifiers: xproto.ModMask1,
-		callback: func() error {
-			if activeClient == nil {
-				return nil
-			}
-			for _, wp := range workspaces {
-				if err := wp.Up(activeClient); err == nil {
-					wp.Arrange()
-				}
-			}
-			return nil
+			w.Layout.MoveClient(activeClient, Left)
+			return w.Arrange()
 		},
 	},
 	{
 		sym:       XK_l,
 		modifiers: xproto.ModMask1,
 		callback: func() error {
-			if activeClient == nil {
+			w := getActiveWorkspace()
+			if w == nil || activeClient == nil {
 				return nil
 			}
-			for _, wp := range workspaces {
-				if err := wp.Right(activeClient); err == nil {
-					wp.Arrange()
-				}
+			w.Layout.MoveClient(activeClient, Right)
+			return w.Arrange()
+		},
+	},
+
+	{
+		sym:       XK_j,
+		modifiers: xproto.ModMask1,
+		callback: func() error {
+			w := getActiveWorkspace()
+			if w == nil || activeClient == nil {
+				return nil
 			}
-			return nil
+			w.Layout.MoveClient(activeClient, Down)
+			return w.Arrange()
+		},
+	},
+	{
+		sym:       XK_k,
+		modifiers: xproto.ModMask1,
+		callback: func() error {
+			w := getActiveWorkspace()
+			if w == nil || activeClient == nil {
+				return nil
+			}
+			w.Layout.MoveClient(activeClient, Up)
+			return w.Arrange()
 		},
 	},
 
 	{
 		sym:       XK_d,
 		modifiers: xproto.ModMask1,
-		callback:  cleanupColumns,
+		callback: func() error {
+			w := getActiveWorkspace()
+			if w == nil {
+				return nil
+			}
+			switch l := w.Layout.(type) {
+			case *ColumnLayout:
+				l.cleanupColumns()
+			}
+			return w.Arrange()
+		},
 	},
 	{
 		sym:       XK_n,
 		modifiers: xproto.ModMask1,
-		callback:  addColumn,
+		callback: func() error {
+			w := getActiveWorkspace()
+			if w == nil {
+				return nil
+			}
+			switch l := w.Layout.(type) {
+			case *ColumnLayout:
+				l.addColumn()
+			}
+			return w.Arrange()
+		},
 	},
 	{
 		sym:       XK_m,
 		modifiers: xproto.ModMask1,
-		callback:  maximizeActiveWindow,
+		callback: func() error {
+			w := getActiveWorkspace()
+			if w == nil {
+				return nil
+			}
+			w.SetLayout(&MonocleLayout{})
+			return w.Arrange()
+		},
+	},
+	{
+		sym:       XK_t,
+		modifiers: xproto.ModMask1,
+		callback: func() error {
+			w := getActiveWorkspace()
+			if w == nil {
+				return nil
+			}
+			w.SetLayout(&ColumnLayout{})
+			return w.Arrange()
+		},
 	},
 }
 
@@ -200,59 +228,6 @@ func closeClientGracefully() error {
 func closeClientForcefully() error {
 	if activeClient != nil {
 		return xproto.DestroyWindowChecked(xc, activeClient.Window).Check()
-	}
-	return nil
-}
-
-func cleanupColumns() error {
-	for _, w := range workspaces {
-		if w.IsActive() {
-			newColumns := make([]*Column, 0, len(w.columns))
-			for _, c := range w.columns {
-				if len(c.Clients) > 0 {
-					newColumns = append(newColumns, c)
-				}
-			}
-			// Don't bother using the newColumns if it didn't change
-			// anything. Just let newColumns get GCed.
-			if len(newColumns) != len(w.columns) {
-				w.columns = newColumns
-				w.Arrange()
-			}
-		}
-	}
-	return nil
-}
-
-func addColumn() error {
-	for _, w := range workspaces {
-		if w.IsActive() {
-			w.columns = append(w.columns, &Column{})
-			w.Arrange()
-		}
-	}
-	return nil
-}
-
-func maximizeActiveWindow() error {
-	for _, w := range workspaces {
-		if !w.IsActive() {
-			continue
-		}
-		if w.maximizedWindow == nil {
-			w.maximizedWindow = &activeClient.Window
-		} else {
-			if err := xproto.ConfigureWindowChecked(
-				xc,
-				*w.maximizedWindow,
-				xproto.ConfigWindowBorderWidth,
-				[]uint32{2},
-			).Check(); err != nil {
-				log.Print(err)
-			}
-			w.maximizedWindow = nil
-		}
-		w.Arrange()
 	}
 	return nil
 }
@@ -377,7 +352,7 @@ func initWorkspaces() {
 			if c, err := NewClient(win); err != nil {
 				log.Println(err)
 			} else {
-				defaultw.Add(c)
+				defaultw.AddClient(c)
 			}
 		}
 	}
@@ -426,6 +401,8 @@ func handleEvent() error {
 	switch e := xev.(type) {
 	case xproto.KeyPressEvent:
 		return handleKeyPressEvent(e)
+	case xproto.KeyReleaseEvent: // xxx
+		return nil
 	case xproto.DestroyNotifyEvent:
 		return handleDestroyNotifyEvent(e)
 	case xproto.ConfigureRequestEvent:
@@ -435,7 +412,7 @@ func handleEvent() error {
 	case xproto.EnterNotifyEvent:
 		return handleEnterNotifyEvent(e)
 	default:
-		log.Println(xev)
+		// log.Printf("Unhandled event: %#v", xev)
 	}
 	return nil
 }
@@ -501,7 +478,7 @@ func handleMapRequestEvent(e xproto.MapRequestEvent) error {
 		xproto.MapWindowChecked(xc, e.Window)
 		c, err := NewClient(e.Window)
 		if err == nil {
-			w.Add(c)
+			w.AddClient(c)
 			w.Arrange()
 		} else {
 			return err
@@ -512,7 +489,7 @@ func handleMapRequestEvent(e xproto.MapRequestEvent) error {
 
 func handleEnterNotifyEvent(e xproto.EnterNotifyEvent) error {
 	for _, ws := range workspaces {
-		if c := ws.GetClientByWin(e.Event); c != nil {
+		if c := ws.GetClient(e.Event); c != nil {
 			activeClient = c
 		}
 	}
@@ -574,4 +551,15 @@ func getAtom(name string) xproto.Atom {
 func decodeAtom(v []byte) xproto.Atom {
 	return xproto.Atom(uint32(v[0]) | uint32(v[1])<<8 |
 		uint32(v[2])<<16 | uint32(v[3])<<24)
+}
+
+// getActiveWorkspace returns the Workspace containing the current
+// active Client, or nil if no Client is active.
+func getActiveWorkspace() *Workspace {
+	for _, w := range workspaces {
+		if w.IsActive() {
+			return w
+		}
+	}
+	return nil
 }

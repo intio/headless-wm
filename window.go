@@ -61,7 +61,10 @@ func (w *Workspace) Add(win xproto.Window) error {
 		// if applicable.
 		for i, c := range w.columns {
 			if len(c.Windows) == 0 {
-				w.columns[i].Windows = append(w.columns[i].Windows, &ManagedWindow{win})
+				w.columns[i].Windows = append(
+					w.columns[i].Windows,
+					&ManagedWindow{win},
+				)
 				return nil
 			}
 		}
@@ -119,7 +122,17 @@ func (w *Workspace) TileWindows() error {
 		}
 	}
 	if prevWin != nil {
-		if err := xproto.WarpPointerChecked(xc, 0, *prevWin, 0, 0, 0, 0, 10, 10).Check(); err != nil {
+		if err := xproto.WarpPointerChecked(
+			xc,       // conn
+			0,        // src
+			*prevWin, // dst
+			0,        // src x
+			0,        // src x
+			0,        // src w
+			0,        // src h
+			10,       // src x
+			10,       // dst y
+		).Check(); err != nil {
 			log.Print(err)
 		}
 	}
@@ -170,7 +183,10 @@ func (wp *Workspace) RemoveWindow(w xproto.Window) error {
 		if idx != -1 {
 			// Found the window at at idx, so delete it and return.
 			// (I wish Go made it easier to delete from a slice.)
-			wp.columns[colnum].Windows = append(column.Windows[0:idx], column.Windows[idx+1:]...)
+			wp.columns[colnum].Windows = append(
+				column.Windows[0:idx],
+				column.Windows[idx+1:]...,
+			)
 			if wp.maximizedWindow != nil && w == *wp.maximizedWindow {
 				wp.maximizedWindow = nil
 			}

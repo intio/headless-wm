@@ -45,6 +45,7 @@ func (wp *Workspace) Down(w *ManagedWindow) error {
 	}
 	return fmt.Errorf("Window not managed by workspace")
 }
+
 func (wp *Workspace) Left(w *ManagedWindow) error {
 	for colnum, column := range wp.columns {
 		idx := -1
@@ -58,16 +59,19 @@ func (wp *Workspace) Left(w *ManagedWindow) error {
 			if colnum <= 0 {
 				return fmt.Errorf("Already in first column of workspace.")
 			}
-
 			// Found the window at at idx, so delete it and return.
 			// (I wish Go made it easier to delete from a slice.)
-			wp.columns[colnum].Windows = append(column.Windows[0:idx], column.Windows[idx+1:]...)
+			wp.columns[colnum].Windows = append(
+				column.Windows[0:idx],
+				column.Windows[idx+1:]...,
+			)
 			wp.columns[colnum-1].Windows = append(wp.columns[colnum-1].Windows, w)
 			return nil
 		}
 	}
 	return fmt.Errorf("Window not managed by workspace")
 }
+
 func (wp *Workspace) Right(w *ManagedWindow) error {
 	for colnum, column := range wp.columns {
 		idx := -1
@@ -81,10 +85,12 @@ func (wp *Workspace) Right(w *ManagedWindow) error {
 			if colnum >= len(wp.columns)-1 {
 				return fmt.Errorf("Already at end of workspace.")
 			}
-
 			// Found the window at at idx, so delete it and return.
 			// (I wish Go made it easier to delete from a slice.)
-			wp.columns[colnum].Windows = append(column.Windows[0:idx], column.Windows[idx+1:]...)
+			wp.columns[colnum].Windows = append(
+				column.Windows[0:idx],
+				column.Windows[idx+1:]...,
+			)
 			wp.columns[colnum+1].Windows = append(wp.columns[colnum+1].Windows, w)
 			return nil
 		}

@@ -146,8 +146,15 @@ func quitWindowGracefully() error {
 		log.Println("Tried to close window, but no active window")
 		return nil
 	}
-	prop, err := xproto.GetProperty(xc, false, *activeWindow, atomWMProtocols,
-		xproto.GetPropertyTypeAny, 0, 64).Reply()
+	prop, err := xproto.GetProperty(
+		xc,
+		false,                     // delete
+		*activeWindow,             // window
+		atomWMProtocols,           // property
+		xproto.GetPropertyTypeAny, // atom
+		0,  // offset
+		64, // length
+	).Reply()
 	if err != nil {
 		return err
 	}
@@ -159,26 +166,28 @@ func quitWindowGracefully() error {
 		}
 	}
 	for v := prop.Value; len(v) >= 4; v = v[4:] {
-		switch decodeAtom(v) {
-		case atomWMDeleteWindow:
+		if decodeAtom(v) == atomWMDeleteWindow {
+			// ICCCM 4.2.8 ClientMessage
 			t := time.Now().Unix()
+			ev := xproto.ClientMessageEvent{
+				Format: 32,
+				Window: *activeWindow,
+				Type:   atomWMProtocols,
+				Data: xproto.ClientMessageDataUnionData32New([]uint32{
+					uint32(atomWMDeleteWindow),
+					uint32(t),
+					0,
+					0,
+					0,
+				}),
+			}
 			return xproto.SendEventChecked(
 				xc,
-				false,
-				*activeWindow,
-				xproto.EventMaskNoEvent,
-				string(xproto.ClientMessageEvent{
-					Format: 32,
-					Window: *activeWindow,
-					Type:   atomWMProtocols,
-					Data: xproto.ClientMessageDataUnionData32New([]uint32{
-						uint32(atomWMDeleteWindow),
-						uint32(t),
-						0,
-						0,
-						0,
-					}),
-				}.Bytes())).Check()
+				false,                   // propagate
+				*activeWindow,           // destination
+				xproto.EventMaskNoEvent, // eventmask
+				string(ev.Bytes()),      // event
+			).Check()
 		}
 	}
 	// No WM_DELETE_WINDOW protocol, so destroy.
@@ -279,7 +288,7 @@ func initScreens() {
 		log.Fatal("Could not parse X connection info")
 	}
 	if len(coninfo.Roots) != 1 {
-		log.Fatal("Inappropriate number of roots. Did Xinerama initialize correctly?")
+		log.Fatal("Bad number of roots. Did Xinerama initialize correctly?")
 	}
 	xroot = coninfo.Roots[0]
 }
@@ -449,7 +458,12 @@ func handleDestroyNotifyEvent(e xproto.DestroyNotifyEvent) error {
 	if activeWindow != nil && e.Window == *activeWindow {
 		activeWindow = nil
 		// Cannot call 'replyChecked' on a cookie that is not expecting a *reply* or an error.
-		xproto.SetInputFocus(xc, xproto.InputFocusPointerRoot, xroot.Root, xproto.TimeCurrentTime)
+		xproto.SetInputFocus(
+			xc,
+			xproto.InputFocusPointerRoot, // revert to
+			xroot.Root,                   // focus
+			xproto.TimeCurrentTime,       // time
+		)
 	}
 	return nil
 }
@@ -466,13 +480,20 @@ func handleConfigureRequestEvent(e xproto.ConfigureRequestEvent) error {
 		BorderWidth:      0,
 		OverrideRedirect: false,
 	}
-	xproto.SendEventChecked(xc, false, e.Window, xproto.EventMaskStructureNotify, string(ev.Bytes()))
+	xproto.SendEventChecked(
+		xc,
+		false,                           // propagate
+		e.Window,                        // target
+		xproto.EventMaskStructureNotify, // mask
+		string(ev.Bytes()),              // event
+	)
 	return nil
 }
 
 func handleMapRequestEvent(e xproto.MapRequestEvent) error {
 	var err error
-	if winattrib, err := xproto.GetWindowAttributes(xc, e.Window).Reply(); err != nil || !winattrib.OverrideRedirect {
+	winattrib, err := xproto.GetWindowAttributes(xc, e.Window).Reply()
+	if err != nil || !winattrib.OverrideRedirect {
 		w := workspaces["default"]
 		xproto.MapWindowChecked(xc, e.Window)
 		w.Add(e.Window)
@@ -515,7 +536,12 @@ TakeFocusPropLoop:
 	}
 	if !focused {
 		// Cannot call 'replyChecked' on a cookie that is not expecting a *reply* or an error.
-		xproto.SetInputFocus(xc, xproto.InputFocusPointerRoot, e.Event, e.Time)
+		xproto.SetInputFocus(
+			xc,
+			xproto.InputFocusPointerRoot, // revert
+			e.Event, // focus
+			e.Time,  // timestamp
+		)
 	}
 	return nil
 }
@@ -534,5 +560,6 @@ func getAtom(name string) xproto.Atom {
 // decodeAtom decodes an xproto.Atom from a property value (expressed
 // as bytes). Note that v has to be at least 4 bytes long.
 func decodeAtom(v []byte) xproto.Atom {
-	return xproto.Atom(uint32(v[0]) | uint32(v[1])<<8 | uint32(v[2])<<16 | uint32(v[3])<<24)
+	return xproto.Atom(uint32(v[0]) | uint32(v[1])<<8 |
+		uint32(v[2])<<16 | uint32(v[3])<<24)
 }

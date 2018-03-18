@@ -418,18 +418,7 @@ func handleEvent() error {
 	case xproto.DestroyNotifyEvent:
 		return handleDestroyNotifyEvent(e)
 	case xproto.ConfigureRequestEvent:
-		ev := xproto.ConfigureNotifyEvent{
-			Event:            e.Window,
-			Window:           e.Window,
-			AboveSibling:     0,
-			X:                e.X,
-			Y:                e.Y,
-			Width:            e.Width,
-			Height:           e.Height,
-			BorderWidth:      0,
-			OverrideRedirect: false,
-		}
-		xproto.SendEventChecked(xc, false, e.Window, xproto.EventMaskStructureNotify, string(ev.Bytes()))
+		return handleConfigureRequestEvent(e)
 	case xproto.MapRequestEvent:
 		if winattrib, err := xproto.GetWindowAttributes(xc, e.Window).Reply(); err != nil || !winattrib.OverrideRedirect {
 			w := workspaces["default"]
@@ -501,6 +490,22 @@ func handleDestroyNotifyEvent(e xproto.DestroyNotifyEvent) error {
 		// Cannot call 'replyChecked' on a cookie that is not expecting a *reply* or an error.
 		xproto.SetInputFocus(xc, xproto.InputFocusPointerRoot, xroot.Root, xproto.TimeCurrentTime)
 	}
+	return nil
+}
+
+func handleConfigureRequestEvent(e xproto.ConfigureRequestEvent) error {
+	ev := xproto.ConfigureNotifyEvent{
+		Event:            e.Window,
+		Window:           e.Window,
+		AboveSibling:     0,
+		X:                e.X,
+		Y:                e.Y,
+		Width:            e.Width,
+		Height:           e.Height,
+		BorderWidth:      0,
+		OverrideRedirect: false,
+	}
+	xproto.SendEventChecked(xc, false, e.Window, xproto.EventMaskStructureNotify, string(ev.Bytes()))
 	return nil
 }
 

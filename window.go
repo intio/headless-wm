@@ -12,7 +12,7 @@ type Client struct {
 	xproto.Window
 }
 type Column struct {
-	Windows []*Client
+	Clients []*Client
 }
 type Workspace struct {
 	Screen  *xinerama.ScreenInfo
@@ -54,15 +54,15 @@ func (w *Workspace) Add(win xproto.Window) error {
 	switch len(w.columns) {
 	case 0:
 		w.columns = []*Column{
-			&Column{Windows: []*Client{&Client{win}}},
+			&Column{Clients: []*Client{&Client{win}}},
 		}
 	default:
 		// Add to the first empty column we can find, and shortcircuit out
 		// if applicable.
 		for i, c := range w.columns {
-			if len(c.Windows) == 0 {
-				w.columns[i].Windows = append(
-					w.columns[i].Windows,
+			if len(c.Clients) == 0 {
+				w.columns[i].Clients = append(
+					w.columns[i].Clients,
 					&Client{win},
 				)
 				return nil
@@ -71,14 +71,14 @@ func (w *Workspace) Add(win xproto.Window) error {
 
 		// No empty columns, add to the last one.
 		i := len(w.columns) - 1
-		w.columns[i].Windows = append(w.columns[i].Windows, &Client{win})
+		w.columns[i].Clients = append(w.columns[i].Clients, &Client{win})
 	}
 	return nil
 }
 
-// TileWindows tiles all the windows of the workspace into the screen that
-// the workspace is attached to.
-func (w *Workspace) TileWindows() error {
+// Arrange arranges all the windows of the workspace into the screen
+// that the workspace is attached to.
+func (w *Workspace) Arrange() error {
 	if w.Screen == nil {
 		return fmt.Errorf("Workspace not attached to a screen.")
 	}
@@ -142,14 +142,14 @@ func (w *Workspace) TileWindows() error {
 // TileColumn sends ConfigureWindow messages to tile the Clients using
 // the geometry of the parameters passed
 func (c Column) TileColumn(xstart, colwidth, colheight uint32) error {
-	n := uint32(len(c.Windows))
+	n := uint32(len(c.Clients))
 	if n == 0 {
 		return nil
 	}
 
 	heightBase := colheight / n
 	var err error
-	for i, win := range c.Windows {
+	for i, win := range c.Clients {
 		if werr := xproto.ConfigureWindowChecked(
 			xc,
 			win.Window,
@@ -172,7 +172,7 @@ func (c Column) TileColumn(xstart, colwidth, colheight uint32) error {
 // HasWindow reports whether this workspace is managing that window.
 func (wp *Workspace) HasWindow(w xproto.Window) bool {
 	for _, column := range wp.columns {
-		for _, win := range column.Windows {
+		for _, win := range column.Clients {
 			if w == win.Window {
 				return true
 			}
@@ -185,7 +185,7 @@ func (wp *Workspace) HasWindow(w xproto.Window) bool {
 func (wp *Workspace) RemoveWindow(w xproto.Window) {
 	for colnum, column := range wp.columns {
 		idx := -1
-		for i, candwin := range column.Windows {
+		for i, candwin := range column.Clients {
 			if w == candwin.Window {
 				idx = i
 				break
@@ -194,9 +194,9 @@ func (wp *Workspace) RemoveWindow(w xproto.Window) {
 		if idx != -1 {
 			// Found the window at at idx, so delete it and return.
 			// (I wish Go made it easier to delete from a slice.)
-			wp.columns[colnum].Windows = append(
-				column.Windows[0:idx],
-				column.Windows[idx+1:]...,
+			wp.columns[colnum].Clients = append(
+				column.Clients[0:idx],
+				column.Clients[idx+1:]...,
 			)
 			if wp.maximizedWindow != nil && w == *wp.maximizedWindow {
 				wp.maximizedWindow = nil

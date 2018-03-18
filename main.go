@@ -72,7 +72,7 @@ var grabs = []*Grab{
 			}
 			for _, wp := range workspaces {
 				if err := wp.Left(activeClient); err == nil {
-					wp.TileWindows()
+					wp.Arrange()
 				}
 			}
 			return nil
@@ -87,7 +87,7 @@ var grabs = []*Grab{
 			}
 			for _, wp := range workspaces {
 				if err := wp.Down(activeClient); err == nil {
-					wp.TileWindows()
+					wp.Arrange()
 				}
 			}
 			return nil
@@ -102,7 +102,7 @@ var grabs = []*Grab{
 			}
 			for _, wp := range workspaces {
 				if err := wp.Up(activeClient); err == nil {
-					wp.TileWindows()
+					wp.Arrange()
 				}
 			}
 			return nil
@@ -117,7 +117,7 @@ var grabs = []*Grab{
 			}
 			for _, wp := range workspaces {
 				if err := wp.Right(activeClient); err == nil {
-					wp.TileWindows()
+					wp.Arrange()
 				}
 			}
 			return nil
@@ -209,7 +209,7 @@ func cleanupColumns() error {
 		if w.IsActive() {
 			newColumns := make([]*Column, 0, len(w.columns))
 			for _, c := range w.columns {
-				if len(c.Windows) > 0 {
+				if len(c.Clients) > 0 {
 					newColumns = append(newColumns, c)
 				}
 			}
@@ -217,7 +217,7 @@ func cleanupColumns() error {
 			// anything. Just let newColumns get GCed.
 			if len(newColumns) != len(w.columns) {
 				w.columns = newColumns
-				w.TileWindows()
+				w.Arrange()
 			}
 		}
 	}
@@ -228,7 +228,7 @@ func addColumn() error {
 	for _, w := range workspaces {
 		if w.IsActive() {
 			w.columns = append(w.columns, &Column{})
-			w.TileWindows()
+			w.Arrange()
 		}
 	}
 	return nil
@@ -252,7 +252,7 @@ func maximizeActiveWindow() error {
 			}
 			w.maximizedWindow = nil
 		}
-		w.TileWindows()
+		w.Arrange()
 	}
 	return nil
 }
@@ -384,7 +384,7 @@ func initWorkspaces() {
 	}
 	for _, workspace := range workspaces {
 		workspace.Screen = &attachedScreens[0]
-		if err := workspace.TileWindows(); err != nil {
+		if err := workspace.Arrange(); err != nil {
 			log.Println(err)
 		}
 	}
@@ -453,7 +453,7 @@ func handleDestroyNotifyEvent(e xproto.DestroyNotifyEvent) error {
 	for _, w := range workspaces {
 		if w.HasWindow(e.Window) {
 			w.RemoveWindow(e.Window)
-			w.TileWindows()
+			w.Arrange()
 		}
 	}
 	if activeClient != nil && e.Window == activeClient.Window {
@@ -498,7 +498,7 @@ func handleMapRequestEvent(e xproto.MapRequestEvent) error {
 		w := workspaces["default"]
 		xproto.MapWindowChecked(xc, e.Window)
 		w.Add(e.Window)
-		w.TileWindows()
+		w.Arrange()
 	}
 	return err
 }

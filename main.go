@@ -248,13 +248,7 @@ func maximizeActiveWindow() error {
 	return nil
 }
 
-func main() {
-	var err error
-	xc, err = xgb.NewConn()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer xc.Close()
+func initScreens() {
 	setup := xproto.Setup(xc)
 	if setup == nil || len(setup.Roots) < 1 {
 		log.Fatal("Could not parse SetupInfo.")
@@ -266,17 +260,20 @@ func main() {
 		log.Fatal(err)
 	} else {
 		if len(r.ScreenInfo) == 0 {
+			// If Xinerama does not return useful information, we can
+			// still query the root window, and create a fake
+			// ScreenInfo structure.
 			attachedScreens = []xinerama.ScreenInfo{
 				xinerama.ScreenInfo{
 					Width:  setup.Roots[0].WidthInPixels,
 					Height: setup.Roots[0].HeightInPixels,
 				},
 			}
-
 		} else {
 			attachedScreens = r.ScreenInfo
 		}
 	}
+
 	coninfo := xproto.Setup(xc)
 	if coninfo == nil {
 		log.Fatal("Could not parse X connection info")
@@ -285,15 +282,36 @@ func main() {
 		log.Fatal("Inappropriate number of roots. Did Xinerama initialize correctly?")
 	}
 	xroot = coninfo.Roots[0]
-	atomWMProtocols = getAtom("WM_PROTOCOLS")
-	atomWMDeleteWindow = getAtom("WM_DELETE_WINDOW")
-	atomWMTakeFocus = getAtom("WM_TAKE_FOCUS")
-	if err := TakeWMOwnership(); err != nil {
+}
+
+func initWM() {
+	err := xproto.ChangeWindowAttributesChecked(
+		xc,
+		xroot.Root,
+		xproto.CwEventMask,
+		[]uint32{
+			xproto.EventMaskKeyPress |
+				xproto.EventMaskKeyRelease |
+				xproto.EventMaskButtonPress |
+				xproto.EventMaskButtonRelease |
+				xproto.EventMaskStructureNotify |
+				xproto.EventMaskSubstructureRedirect,
+		}).Check()
+	if err != nil {
 		if _, ok := err.(xproto.AccessError); ok {
 			log.Fatal("Could not become the WM. Is another WM already running?")
 		}
 		log.Fatal(err)
 	}
+}
+
+func initAtoms() {
+	atomWMProtocols = getAtom("WM_PROTOCOLS")
+	atomWMDeleteWindow = getAtom("WM_DELETE_WINDOW")
+	atomWMTakeFocus = getAtom("WM_TAKE_FOCUS")
+}
+
+func initKeys() {
 	const (
 		loKey = 8
 		hiKey = 255
@@ -337,6 +355,21 @@ func main() {
 
 		}
 	}
+}
+
+func main() {
+	var err error
+	xc, err = xgb.NewConn()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer xc.Close()
+
+	initScreens()
+	initAtoms()
+	initWM()
+	initKeys()
+
 	tree, err := xproto.QueryTree(xc, xroot.Root).Reply()
 	if err != nil {
 		log.Fatal(err)
@@ -348,20 +381,16 @@ func main() {
 			if err := defaultw.Add(c); err != nil {
 				log.Println(err)
 			}
-
 		}
-
 		if len(attachedScreens) > 0 {
 			defaultw.Screen = &attachedScreens[0]
 		}
-
 		workspaces["default"] = defaultw
-
 		if err := defaultw.TileWindows(); err != nil {
 			log.Println(err)
 		}
-
 	}
+
 	// Main X Event loop
 eventloop:
 	for {
@@ -453,21 +482,6 @@ eventloop:
 			log.Println(xev)
 		}
 	}
-}
-
-func TakeWMOwnership() error {
-	return xproto.ChangeWindowAttributesChecked(
-		xc,
-		xroot.Root,
-		xproto.CwEventMask,
-		[]uint32{
-			xproto.EventMaskKeyPress |
-				xproto.EventMaskKeyRelease |
-				xproto.EventMaskButtonPress |
-				xproto.EventMaskButtonRelease |
-				xproto.EventMaskStructureNotify |
-				xproto.EventMaskSubstructureRedirect,
-		}).Check()
 }
 
 func HandleKeyPressEvent(key xproto.KeyPressEvent) error {

@@ -13,20 +13,20 @@ import (
 var xc *xgb.Conn
 var errorQuit error = errors.New("Quit")
 
-func closeClientGracefully() error {
-	if activeClient == nil {
+func (wm *WM) closeClientGracefully() error {
+	if wm.activeClient == nil {
 		log.Println("Tried to close client, but no active client")
 		return nil
 	}
-	return activeClient.CloseGracefully()
+	return wm.activeClient.CloseGracefully()
 }
 
-func closeClientForcefully() error {
-	if activeClient == nil {
+func (wm *WM) closeClientForcefully() error {
+	if wm.activeClient == nil {
 		log.Println("Tried to close client, but no active client")
 		return nil
 	}
-	return activeClient.CloseForcefully()
+	return wm.activeClient.CloseForcefully()
 }
 
 func (wm *WM) initScreens() {
@@ -189,8 +189,8 @@ func (wm *WM) handleDestroyNotifyEvent(e xproto.DestroyNotifyEvent) error {
 			w.Arrange()
 		}
 	}
-	if activeClient != nil && e.Window == activeClient.Window {
-		activeClient = nil
+	if wm.activeClient != nil && e.Window == wm.activeClient.Window {
+		wm.activeClient = nil
 		// Cannot call 'replyChecked' on a cookie that is not expecting a *reply* or an error.
 		xproto.SetInputFocus(
 			xc,
@@ -237,8 +237,8 @@ func (wm *WM) handleMapRequestEvent(e xproto.MapRequestEvent) error {
 		} else {
 			return err
 		}
-		if activeClient == nil {
-			activeClient = c
+		if wm.activeClient == nil {
+			wm.activeClient = c
 		}
 	}
 	return err
@@ -247,8 +247,11 @@ func (wm *WM) handleMapRequestEvent(e xproto.MapRequestEvent) error {
 func (wm *WM) handleEnterNotifyEvent(e xproto.EnterNotifyEvent) error {
 	for _, ws := range wm.workspaces {
 		if c := ws.GetClient(e.Event); c != nil {
-			activeClient = c
+			wm.activeClient = c
 		}
+	}
+	if wm.activeClient == nil {
+		panic("no workspace is managing this window - what happened?")
 	}
 	prop, err := xproto.GetProperty(xc, false, e.Event, atomWMProtocols,
 		xproto.GetPropertyTypeAny, 0, 64).Reply()
@@ -266,7 +269,7 @@ TakeFocusPropLoop:
 				xproto.EventMaskNoEvent,
 				string(xproto.ClientMessageEvent{
 					Format: 32,
-					Window: activeClient.Window,
+					Window: wm.activeClient.Window,
 					Type:   atomWMProtocols,
 					Data: xproto.ClientMessageDataUnionData32New([]uint32{
 						uint32(atomWMTakeFocus),

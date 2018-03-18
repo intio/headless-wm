@@ -13,16 +13,18 @@ type WM struct {
 	grabs  []*Grab
 	keymap [256][]xproto.Keysym
 
+	activeClient *Client
+
 	workspaces []*Workspace
-	active     int
+	activeWs   int
 }
 
 // GetActiveWorkspace returns the Workspace containing the current
 // active Client, or nil if no Client is active.
 func (wm *WM) GetActiveWorkspace() *Workspace {
-	w := wm.workspaces[wm.active]
-	if activeClient != nil && !w.IsActive() {
-		panic("I should be active?")
+	w := wm.workspaces[wm.activeWs]
+	if wm.activeClient != nil && !w.HasWindow(wm.activeClient.Window) {
+		panic("marked active but don't have the active client")
 	}
 	return w
 }

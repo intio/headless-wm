@@ -30,12 +30,12 @@ func (wm *WM) getGrabs() []*Grab {
 		{
 			sym:       XK_q,
 			modifiers: xproto.ModMask1,
-			callback:  closeClientGracefully,
+			callback:  wm.closeClientGracefully,
 		},
 		{
 			sym:       XK_q,
 			modifiers: xproto.ModMask1 | xproto.ModMaskShift,
-			callback:  closeClientForcefully,
+			callback:  wm.closeClientForcefully,
 		},
 
 		{
@@ -162,10 +162,10 @@ func (wm *WM) setLayoutOnActiveWorkspace(l Layout) error {
 func (wm *WM) moveClientOnActiveWorkspace(d Direction) func() error {
 	return func() error {
 		w := wm.GetActiveWorkspace()
-		if activeClient == nil {
+		if wm.activeClient == nil {
 			return nil
 		}
-		w.Layout.MoveClient(activeClient, d)
+		w.Layout.MoveClient(wm.activeClient, d)
 		return w.Arrange()
 	}
 }

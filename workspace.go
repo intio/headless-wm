@@ -57,12 +57,3 @@ func (w *Workspace) RemoveWindow(window xproto.Window) {
 		w.Layout.RemoveClient(c)
 	}
 }
-
-// IsActive reports whether this Workspace contains the current active
-// Client.
-func (w *Workspace) IsActive() bool {
-	if activeClient == nil {
-		return false
-	}
-	return w.HasWindow(activeClient.Window)
-}

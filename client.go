@@ -21,8 +21,6 @@ type Client struct {
 	StackMode uint32
 }
 
-var activeClient *Client
-
 // NewClient initializes the Client struct from Window ID
 func NewClient(w xproto.Window) (*Client, error) {
 	c := &Client{
@@ -120,7 +118,7 @@ func (c *Client) CloseGracefully() error {
 			t := time.Now().Unix()
 			ev := xproto.ClientMessageEvent{
 				Format: 32,
-				Window: activeClient.Window,
+				Window: c.Window,
 				Type:   atomWMProtocols,
 				Data: xproto.ClientMessageDataUnionData32New([]uint32{
 					uint32(atomWMDeleteWindow),
@@ -133,18 +131,14 @@ func (c *Client) CloseGracefully() error {
 			return xproto.SendEventChecked(
 				xc,
 				false,                   // propagate
-				activeClient.Window,     // destination
+				c.Window,                // destination
 				xproto.EventMaskNoEvent, // eventmask
 				string(ev.Bytes()),      // event
 			).Check()
 		}
 	}
 	// No WM_DELETE_WINDOW protocol, so destroy.
-	closeClientForcefully()
-	if activeClient != nil {
-		return xproto.DestroyWindowChecked(xc, activeClient.Window).Check()
-	}
-	return nil
+	return c.CloseForcefully()
 
 }
 

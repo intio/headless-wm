@@ -10,6 +10,9 @@ type WM struct {
 	xroot           xproto.ScreenInfo
 	attachedScreens []xinerama.ScreenInfo
 
+	grabs  []*Grab
+	keymap [256][]xproto.Keysym
+
 	workspaces []*Workspace
 	active     int
 }

@@ -12,16 +12,6 @@ import (
 
 var xc *xgb.Conn
 var errorQuit error = errors.New("Quit")
-var keymap [256][]xproto.Keysym
-
-var wm = &WM{
-	workspaces: []*Workspace{
-		&Workspace{
-			Layout: &ColumnLayout{},
-		},
-	},
-	active: 0,
-}
 
 func closeClientGracefully() error {
 	if activeClient == nil {
@@ -39,7 +29,7 @@ func closeClientForcefully() error {
 	return activeClient.CloseForcefully()
 }
 
-func initScreens() {
+func (wm *WM) initScreens() {
 	setup := xproto.Setup(xc)
 	if setup == nil || len(setup.Roots) < 1 {
 		log.Fatal("Could not parse SetupInfo.")
@@ -75,7 +65,7 @@ func initScreens() {
 	wm.xroot = coninfo.Roots[0]
 }
 
-func initWM() {
+func (wm *WM) initWM() {
 	err := xproto.ChangeWindowAttributesChecked(
 		xc,
 		wm.xroot.Root,
@@ -97,7 +87,7 @@ func initWM() {
 	}
 }
 
-func initWorkspaces() {
+func (wm *WM) initWorkspaces() {
 	tree, err := xproto.QueryTree(xc, wm.xroot.Root).Reply()
 	if err != nil {
 		log.Fatal(err)
@@ -124,6 +114,14 @@ func initWorkspaces() {
 }
 
 func main() {
+	var wm = &WM{
+		workspaces: []*Workspace{
+			&Workspace{
+				Layout: &ColumnLayout{},
+			},
+		},
+	}
+
 	var err error
 	xc, err = xgb.NewConn()
 	if err != nil {
@@ -131,14 +129,14 @@ func main() {
 	}
 	defer xc.Close()
 
-	initScreens()
+	wm.initScreens()
 	initAtoms()
-	initWM()
-	initKeys()
-	initWorkspaces()
+	wm.initWM()
+	wm.initKeys()
+	wm.initWorkspaces()
 
 	for {
-		err = handleEvent()
+		err = wm.handleEvent()
 		switch err {
 		case errorQuit:
 			os.Exit(0)
@@ -149,34 +147,34 @@ func main() {
 	}
 }
 
-func handleEvent() error {
+func (wm *WM) handleEvent() error {
 	xev, err := xc.WaitForEvent()
 	if err != nil {
 		return err
 	}
 	switch e := xev.(type) {
 	case xproto.KeyPressEvent:
-		return handleKeyPressEvent(e)
+		return wm.handleKeyPressEvent(e)
 	case xproto.KeyReleaseEvent: // xxx
 		return nil
 	case xproto.DestroyNotifyEvent:
-		return handleDestroyNotifyEvent(e)
+		return wm.handleDestroyNotifyEvent(e)
 	case xproto.ConfigureRequestEvent:
-		return handleConfigureRequestEvent(e)
+		return wm.handleConfigureRequestEvent(e)
 	case xproto.MapRequestEvent:
-		return handleMapRequestEvent(e)
+		return wm.handleMapRequestEvent(e)
 	case xproto.EnterNotifyEvent:
-		return handleEnterNotifyEvent(e)
+		return wm.handleEnterNotifyEvent(e)
 	default:
 		// log.Printf("Unhandled event: %#v", xev)
 	}
 	return nil
 }
 
-func handleKeyPressEvent(key xproto.KeyPressEvent) error {
-	for _, grab := range grabs {
+func (wm *WM) handleKeyPressEvent(key xproto.KeyPressEvent) error {
+	for _, grab := range wm.grabs {
 		if grab.modifiers == key.State &&
-			grab.sym == keymap[key.Detail][0] &&
+			grab.sym == wm.keymap[key.Detail][0] &&
 			grab.callback != nil {
 			return grab.callback()
 		}
@@ -184,7 +182,7 @@ func handleKeyPressEvent(key xproto.KeyPressEvent) error {
 	return nil
 }
 
-func handleDestroyNotifyEvent(e xproto.DestroyNotifyEvent) error {
+func (wm *WM) handleDestroyNotifyEvent(e xproto.DestroyNotifyEvent) error {
 	for _, w := range wm.workspaces {
 		if w.HasWindow(e.Window) {
 			w.RemoveWindow(e.Window)
@@ -204,7 +202,7 @@ func handleDestroyNotifyEvent(e xproto.DestroyNotifyEvent) error {
 	return nil
 }
 
-func handleConfigureRequestEvent(e xproto.ConfigureRequestEvent) error {
+func (wm *WM) handleConfigureRequestEvent(e xproto.ConfigureRequestEvent) error {
 	ev := xproto.ConfigureNotifyEvent{
 		Event:            e.Window,
 		Window:           e.Window,
@@ -226,7 +224,7 @@ func handleConfigureRequestEvent(e xproto.ConfigureRequestEvent) error {
 	return nil
 }
 
-func handleMapRequestEvent(e xproto.MapRequestEvent) error {
+func (wm *WM) handleMapRequestEvent(e xproto.MapRequestEvent) error {
 	var err error
 	winattrib, err := xproto.GetWindowAttributes(xc, e.Window).Reply()
 	if err != nil || !winattrib.OverrideRedirect {
@@ -246,7 +244,7 @@ func handleMapRequestEvent(e xproto.MapRequestEvent) error {
 	return err
 }
 
-func handleEnterNotifyEvent(e xproto.EnterNotifyEvent) error {
+func (wm *WM) handleEnterNotifyEvent(e xproto.EnterNotifyEvent) error {
 	for _, ws := range wm.workspaces {
 		if c := ws.GetClient(e.Event); c != nil {
 			activeClient = c

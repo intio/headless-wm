@@ -15,73 +15,79 @@ type Grab struct {
 	callback  func() error
 }
 
-var grabs = []*Grab{
-	{
-		sym:       XK_q,
-		modifiers: xproto.ModMaskControl | xproto.ModMaskShift | xproto.ModMask1,
-		callback:  func() error { return errorQuit },
-	},
-	{
-		sym:       XK_Return,
-		modifiers: xproto.ModMask1,
-		callback:  spawner("x-terminal-emulator"),
-	},
-	{
-		sym:       XK_q,
-		modifiers: xproto.ModMask1,
-		callback:  closeClientGracefully,
-	},
-	{
-		sym:       XK_q,
-		modifiers: xproto.ModMask1 | xproto.ModMaskShift,
-		callback:  closeClientForcefully,
-	},
+func (wm *WM) getGrabs() []*Grab {
+	return []*Grab{
+		{
+			sym:       XK_q,
+			modifiers: xproto.ModMaskControl | xproto.ModMaskShift | xproto.ModMask1,
+			callback:  func() error { return errorQuit },
+		},
+		{
+			sym:       XK_Return,
+			modifiers: xproto.ModMask1,
+			callback:  spawner("x-terminal-emulator"),
+		},
+		{
+			sym:       XK_q,
+			modifiers: xproto.ModMask1,
+			callback:  closeClientGracefully,
+		},
+		{
+			sym:       XK_q,
+			modifiers: xproto.ModMask1 | xproto.ModMaskShift,
+			callback:  closeClientForcefully,
+		},
 
-	{
-		sym:       XK_h,
-		modifiers: xproto.ModMask1,
-		callback:  moveClientOnActiveWorkspace(Left),
-	},
-	{
-		sym:       XK_l,
-		modifiers: xproto.ModMask1,
-		callback:  moveClientOnActiveWorkspace(Right),
-	},
+		{
+			sym:       XK_h,
+			modifiers: xproto.ModMask1,
+			callback:  wm.moveClientOnActiveWorkspace(Left),
+		},
+		{
+			sym:       XK_l,
+			modifiers: xproto.ModMask1,
+			callback:  wm.moveClientOnActiveWorkspace(Right),
+		},
 
-	{
-		sym:       XK_j,
-		modifiers: xproto.ModMask1,
-		callback:  moveClientOnActiveWorkspace(Down),
-	},
-	{
-		sym:       XK_k,
-		modifiers: xproto.ModMask1,
-		callback:  moveClientOnActiveWorkspace(Up),
-	},
+		{
+			sym:       XK_j,
+			modifiers: xproto.ModMask1,
+			callback:  wm.moveClientOnActiveWorkspace(Down),
+		},
+		{
+			sym:       XK_k,
+			modifiers: xproto.ModMask1,
+			callback:  wm.moveClientOnActiveWorkspace(Up),
+		},
 
-	{
-		sym:       XK_d,
-		modifiers: xproto.ModMask1,
-		callback:  cleanupColumns,
-	},
-	{
-		sym:       XK_n,
-		modifiers: xproto.ModMask1,
-		callback:  addColumn,
-	},
-	{
-		sym:       XK_m,
-		modifiers: xproto.ModMask1,
-		callback:  func() error { return setLayoutOnActiveWorkspace(&MonocleLayout{}) },
-	},
-	{
-		sym:       XK_t,
-		modifiers: xproto.ModMask1,
-		callback:  func() error { return setLayoutOnActiveWorkspace(&ColumnLayout{}) },
-	},
+		{
+			sym:       XK_d,
+			modifiers: xproto.ModMask1,
+			callback:  wm.cleanupColumns,
+		},
+		{
+			sym:       XK_n,
+			modifiers: xproto.ModMask1,
+			callback:  wm.addColumn,
+		},
+		{
+			sym:       XK_m,
+			modifiers: xproto.ModMask1,
+			callback: func() error {
+				return wm.setLayoutOnActiveWorkspace(&MonocleLayout{})
+			},
+		},
+		{
+			sym:       XK_t,
+			modifiers: xproto.ModMask1,
+			callback: func() error {
+				return wm.setLayoutOnActiveWorkspace(&ColumnLayout{})
+			},
+		},
+	}
 }
 
-func initKeys() {
+func (wm *WM) initKeys() {
 	const (
 		loKey = 8
 		hiKey = 255
@@ -97,10 +103,12 @@ func initKeys() {
 	}
 
 	for i := 0; i < hiKey-loKey+1; i++ {
-		keymap[loKey+i] = reply.Keysyms[i*int(reply.KeysymsPerKeycode) : (i+1)*int(reply.KeysymsPerKeycode)]
+		wm.keymap[loKey+i] = reply.Keysyms[i*int(reply.KeysymsPerKeycode) : (i+1)*int(reply.KeysymsPerKeycode)]
 	}
 
-	for i, syms := range keymap {
+	grabs := wm.getGrabs()
+
+	for i, syms := range wm.keymap {
 		for _, sym := range syms {
 			for c := range grabs {
 				if grabs[c].sym == sym {
@@ -127,7 +135,7 @@ func initKeys() {
 	}
 }
 
-func cleanupColumns() error {
+func (wm *WM) cleanupColumns() error {
 	w := wm.GetActiveWorkspace()
 	switch l := w.Layout.(type) {
 	case *ColumnLayout:
@@ -136,7 +144,7 @@ func cleanupColumns() error {
 	return w.Arrange()
 }
 
-func addColumn() error {
+func (wm *WM) addColumn() error {
 	w := wm.GetActiveWorkspace()
 	switch l := w.Layout.(type) {
 	case *ColumnLayout:
@@ -145,13 +153,13 @@ func addColumn() error {
 	return w.Arrange()
 }
 
-func setLayoutOnActiveWorkspace(l Layout) error {
+func (wm *WM) setLayoutOnActiveWorkspace(l Layout) error {
 	w := wm.GetActiveWorkspace()
 	w.SetLayout(l)
 	return w.Arrange()
 }
 
-func moveClientOnActiveWorkspace(d Direction) func() error {
+func (wm *WM) moveClientOnActiveWorkspace(d Direction) func() error {
 	return func() error {
 		w := wm.GetActiveWorkspace()
 		if activeClient == nil {

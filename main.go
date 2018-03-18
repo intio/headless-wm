@@ -420,12 +420,7 @@ func handleEvent() error {
 	case xproto.ConfigureRequestEvent:
 		return handleConfigureRequestEvent(e)
 	case xproto.MapRequestEvent:
-		if winattrib, err := xproto.GetWindowAttributes(xc, e.Window).Reply(); err != nil || !winattrib.OverrideRedirect {
-			w := workspaces["default"]
-			xproto.MapWindowChecked(xc, e.Window)
-			w.Add(e.Window)
-			w.TileWindows()
-		}
+		return handleMapRequestEvent(e)
 	case xproto.EnterNotifyEvent:
 		activeWindow = &e.Event
 		prop, err := xproto.GetProperty(xc, false, e.Event, atomWMProtocols,
@@ -507,6 +502,17 @@ func handleConfigureRequestEvent(e xproto.ConfigureRequestEvent) error {
 	}
 	xproto.SendEventChecked(xc, false, e.Window, xproto.EventMaskStructureNotify, string(ev.Bytes()))
 	return nil
+}
+
+func handleMapRequestEvent(e xproto.MapRequestEvent) error {
+	var err error
+	if winattrib, err := xproto.GetWindowAttributes(xc, e.Window).Reply(); err != nil || !winattrib.OverrideRedirect {
+		w := workspaces["default"]
+		xproto.MapWindowChecked(xc, e.Window)
+		w.Add(e.Window)
+		w.TileWindows()
+	}
+	return err
 }
 
 func getAtom(name string) xproto.Atom {

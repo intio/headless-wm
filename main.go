@@ -66,82 +66,34 @@ var grabs = []*Grab{
 	{
 		sym:       XK_h,
 		modifiers: xproto.ModMask1,
-		callback: func() error {
-			w := getActiveWorkspace()
-			if w == nil || activeClient == nil {
-				return nil
-			}
-			w.Layout.MoveClient(activeClient, Left)
-			return w.Arrange()
-		},
+		callback:  moveClientOnActiveWorkspace(Left),
 	},
 	{
 		sym:       XK_l,
 		modifiers: xproto.ModMask1,
-		callback: func() error {
-			w := getActiveWorkspace()
-			if w == nil || activeClient == nil {
-				return nil
-			}
-			w.Layout.MoveClient(activeClient, Right)
-			return w.Arrange()
-		},
+		callback:  moveClientOnActiveWorkspace(Right),
 	},
 
 	{
 		sym:       XK_j,
 		modifiers: xproto.ModMask1,
-		callback: func() error {
-			w := getActiveWorkspace()
-			if w == nil || activeClient == nil {
-				return nil
-			}
-			w.Layout.MoveClient(activeClient, Down)
-			return w.Arrange()
-		},
+		callback:  moveClientOnActiveWorkspace(Down),
 	},
 	{
 		sym:       XK_k,
 		modifiers: xproto.ModMask1,
-		callback: func() error {
-			w := getActiveWorkspace()
-			if w == nil || activeClient == nil {
-				return nil
-			}
-			w.Layout.MoveClient(activeClient, Up)
-			return w.Arrange()
-		},
+		callback:  moveClientOnActiveWorkspace(Up),
 	},
 
 	{
 		sym:       XK_d,
 		modifiers: xproto.ModMask1,
-		callback: func() error {
-			w := getActiveWorkspace()
-			if w == nil {
-				return nil
-			}
-			switch l := w.Layout.(type) {
-			case *ColumnLayout:
-				l.cleanupColumns()
-			}
-			return w.Arrange()
-		},
+		callback:  cleanupColumns,
 	},
 	{
 		sym:       XK_n,
 		modifiers: xproto.ModMask1,
-		callback: func() error {
-			w := getActiveWorkspace()
-			if w == nil {
-				return nil
-			}
-			switch l := w.Layout.(type) {
-			case *ColumnLayout:
-				l.addColumn()
-			}
-			return w.Arrange()
-		},
+		callback:  addColumn,
 	},
 	{
 		sym:       XK_m,
@@ -167,6 +119,41 @@ var grabs = []*Grab{
 			return w.Arrange()
 		},
 	},
+}
+
+func cleanupColumns() error {
+	w := getActiveWorkspace()
+	if w == nil {
+		return nil
+	}
+	switch l := w.Layout.(type) {
+	case *ColumnLayout:
+		l.cleanupColumns()
+	}
+	return w.Arrange()
+}
+
+func addColumn() error {
+	w := getActiveWorkspace()
+	if w == nil {
+		return nil
+	}
+	switch l := w.Layout.(type) {
+	case *ColumnLayout:
+		l.addColumn()
+	}
+	return w.Arrange()
+}
+
+func moveClientOnActiveWorkspace(d Direction) func() error {
+	return func() error {
+		w := getActiveWorkspace()
+		if w == nil || activeClient == nil {
+			return nil
+		}
+		w.Layout.MoveClient(activeClient, d)
+		return w.Arrange()
+	}
 }
 
 func closeClientGracefully() error {

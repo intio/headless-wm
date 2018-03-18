@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/BurntSushi/xgb/xproto"
 )
 
@@ -92,4 +94,60 @@ func (c *Client) WarpPointer() error {
 		10,       // dst x
 		10,       // dst y
 	).Check()
+}
+
+func (c *Client) CloseGracefully() error {
+	prop, err := xproto.GetProperty(
+		xc,
+		false,                     // delete
+		c.Window,                  // window
+		atomWMProtocols,           // property
+		xproto.GetPropertyTypeAny, // atom
+		0,  // offset
+		64, // length
+	).Reply()
+	if err != nil {
+		return err
+	}
+	if prop == nil {
+		// There were no properties, so the window doesn't follow ICCCM.
+		// Just destroy it.
+		return c.CloseForcefully()
+	}
+	for v := prop.Value; len(v) >= 4; v = v[4:] {
+		if decodeAtom(v) == atomWMDeleteWindow {
+			// ICCCM 4.2.8 ClientMessage
+			t := time.Now().Unix()
+			ev := xproto.ClientMessageEvent{
+				Format: 32,
+				Window: activeClient.Window,
+				Type:   atomWMProtocols,
+				Data: xproto.ClientMessageDataUnionData32New([]uint32{
+					uint32(atomWMDeleteWindow),
+					uint32(t),
+					0,
+					0,
+					0,
+				}),
+			}
+			return xproto.SendEventChecked(
+				xc,
+				false,                   // propagate
+				activeClient.Window,     // destination
+				xproto.EventMaskNoEvent, // eventmask
+				string(ev.Bytes()),      // event
+			).Check()
+		}
+	}
+	// No WM_DELETE_WINDOW protocol, so destroy.
+	closeClientForcefully()
+	if activeClient != nil {
+		return xproto.DestroyWindowChecked(xc, activeClient.Window).Check()
+	}
+	return nil
+
+}
+
+func (c *Client) CloseForcefully() error {
+	return xproto.DestroyWindowChecked(xc, c.Window).Check()
 }

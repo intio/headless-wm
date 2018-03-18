@@ -6,7 +6,7 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 )
 
-func (wp *Workspace) Up(w *ManagedWindow) error {
+func (wp *Workspace) Up(w *Client) error {
 	for colnum, column := range wp.columns {
 		idx := -1
 		for i, candwin := range column.Windows {
@@ -26,7 +26,7 @@ func (wp *Workspace) Up(w *ManagedWindow) error {
 	return fmt.Errorf("Window not managed by workspace")
 }
 
-func (wp *Workspace) Down(w *ManagedWindow) error {
+func (wp *Workspace) Down(w *Client) error {
 	for colnum, column := range wp.columns {
 		idx := -1
 		for i, candwin := range column.Windows {
@@ -46,7 +46,7 @@ func (wp *Workspace) Down(w *ManagedWindow) error {
 	return fmt.Errorf("Window not managed by workspace")
 }
 
-func (wp *Workspace) Left(w *ManagedWindow) error {
+func (wp *Workspace) Left(w *Client) error {
 	for colnum, column := range wp.columns {
 		idx := -1
 		for i, candwin := range column.Windows {
@@ -72,7 +72,7 @@ func (wp *Workspace) Left(w *ManagedWindow) error {
 	return fmt.Errorf("Window not managed by workspace")
 }
 
-func (wp *Workspace) Right(w *ManagedWindow) error {
+func (wp *Workspace) Right(w *Client) error {
 	for colnum, column := range wp.columns {
 		idx := -1
 		for i, candwin := range column.Windows {
@@ -99,19 +99,23 @@ func (wp *Workspace) Right(w *ManagedWindow) error {
 }
 
 func (w *Workspace) ContainsWindow(win xproto.Window) bool {
+	return w.GetClientByWin(win) != nil
+}
+
+func (w *Workspace) GetClientByWin(win xproto.Window) *Client {
 	for _, c := range w.columns {
 		for _, w := range c.Windows {
 			if w.Window == win {
-				return true
+				return w
 			}
 		}
 	}
-	return false
+	return nil
 }
 
 func (w *Workspace) IsActive() bool {
-	if activeWindow == nil {
+	if activeClient == nil {
 		return false
 	}
-	return w.ContainsWindow(*activeWindow)
+	return w.ContainsWindow(activeClient.Window)
 }

@@ -55,23 +55,23 @@ var grabs = []*Grab{
 	{
 		sym:       XK_q,
 		modifiers: xproto.ModMask1,
-		callback:  quitWindowGracefully,
+		callback:  closeClientGracefully,
 	},
 	{
 		sym:       XK_q,
 		modifiers: xproto.ModMask1 | xproto.ModMaskShift,
-		callback:  quitWindowForcefully,
+		callback:  closeClientForcefully,
 	},
 
 	{
 		sym:       XK_h,
 		modifiers: xproto.ModMask1,
 		callback: func() error {
-			if activeWindow == nil {
+			if activeClient == nil {
 				return nil
 			}
 			for _, wp := range workspaces {
-				if err := wp.Left(&ManagedWindow{*activeWindow}); err == nil {
+				if err := wp.Left(activeClient); err == nil {
 					wp.TileWindows()
 				}
 			}
@@ -82,11 +82,11 @@ var grabs = []*Grab{
 		sym:       XK_j,
 		modifiers: xproto.ModMask1,
 		callback: func() error {
-			if activeWindow == nil {
+			if activeClient == nil {
 				return nil
 			}
 			for _, wp := range workspaces {
-				if err := wp.Down(&ManagedWindow{*activeWindow}); err == nil {
+				if err := wp.Down(activeClient); err == nil {
 					wp.TileWindows()
 				}
 			}
@@ -97,11 +97,11 @@ var grabs = []*Grab{
 		sym:       XK_k,
 		modifiers: xproto.ModMask1,
 		callback: func() error {
-			if activeWindow == nil {
+			if activeClient == nil {
 				return nil
 			}
 			for _, wp := range workspaces {
-				if err := wp.Up(&ManagedWindow{*activeWindow}); err == nil {
+				if err := wp.Up(activeClient); err == nil {
 					wp.TileWindows()
 				}
 			}
@@ -112,11 +112,11 @@ var grabs = []*Grab{
 		sym:       XK_l,
 		modifiers: xproto.ModMask1,
 		callback: func() error {
-			if activeWindow == nil {
+			if activeClient == nil {
 				return nil
 			}
 			for _, wp := range workspaces {
-				if err := wp.Right(&ManagedWindow{*activeWindow}); err == nil {
+				if err := wp.Right(activeClient); err == nil {
 					wp.TileWindows()
 				}
 			}
@@ -141,15 +141,15 @@ var grabs = []*Grab{
 	},
 }
 
-func quitWindowGracefully() error {
-	if activeWindow == nil {
-		log.Println("Tried to close window, but no active window")
+func closeClientGracefully() error {
+	if activeClient == nil {
+		log.Println("Tried to close client, but no active client")
 		return nil
 	}
 	prop, err := xproto.GetProperty(
 		xc,
 		false,                     // delete
-		*activeWindow,             // window
+		activeClient.Window,       // window
 		atomWMProtocols,           // property
 		xproto.GetPropertyTypeAny, // atom
 		0,  // offset
@@ -161,8 +161,8 @@ func quitWindowGracefully() error {
 	if prop == nil {
 		// There were no properties, so the window doesn't follow ICCCM.
 		// Just destroy it.
-		if activeWindow != nil {
-			return xproto.DestroyWindowChecked(xc, *activeWindow).Check()
+		if activeClient != nil {
+			return xproto.DestroyWindowChecked(xc, activeClient.Window).Check()
 		}
 	}
 	for v := prop.Value; len(v) >= 4; v = v[4:] {
@@ -171,7 +171,7 @@ func quitWindowGracefully() error {
 			t := time.Now().Unix()
 			ev := xproto.ClientMessageEvent{
 				Format: 32,
-				Window: *activeWindow,
+				Window: activeClient.Window,
 				Type:   atomWMProtocols,
 				Data: xproto.ClientMessageDataUnionData32New([]uint32{
 					uint32(atomWMDeleteWindow),
@@ -184,22 +184,22 @@ func quitWindowGracefully() error {
 			return xproto.SendEventChecked(
 				xc,
 				false,                   // propagate
-				*activeWindow,           // destination
+				activeClient.Window,     // destination
 				xproto.EventMaskNoEvent, // eventmask
 				string(ev.Bytes()),      // event
 			).Check()
 		}
 	}
 	// No WM_DELETE_WINDOW protocol, so destroy.
-	if activeWindow != nil {
-		return xproto.DestroyWindowChecked(xc, *activeWindow).Check()
+	if activeClient != nil {
+		return xproto.DestroyWindowChecked(xc, activeClient.Window).Check()
 	}
 	return nil
 }
 
-func quitWindowForcefully() error {
-	if activeWindow != nil {
-		return xproto.DestroyWindowChecked(xc, *activeWindow).Check()
+func closeClientForcefully() error {
+	if activeClient != nil {
+		return xproto.DestroyWindowChecked(xc, activeClient.Window).Check()
 	}
 	return nil
 }
@@ -240,7 +240,7 @@ func maximizeActiveWindow() error {
 			continue
 		}
 		if w.maximizedWindow == nil {
-			w.maximizedWindow = activeWindow
+			w.maximizedWindow = &activeClient.Window
 		} else {
 			if err := xproto.ConfigureWindowChecked(
 				xc,
@@ -451,12 +451,13 @@ func handleKeyPressEvent(key xproto.KeyPressEvent) error {
 
 func handleDestroyNotifyEvent(e xproto.DestroyNotifyEvent) error {
 	for _, w := range workspaces {
-		if err := w.RemoveWindow(e.Window); err == nil {
+		if w.HasWindow(e.Window) {
+			w.RemoveWindow(e.Window)
 			w.TileWindows()
 		}
 	}
-	if activeWindow != nil && e.Window == *activeWindow {
-		activeWindow = nil
+	if activeClient != nil && e.Window == activeClient.Window {
+		activeClient = nil
 		// Cannot call 'replyChecked' on a cookie that is not expecting a *reply* or an error.
 		xproto.SetInputFocus(
 			xc,
@@ -503,7 +504,11 @@ func handleMapRequestEvent(e xproto.MapRequestEvent) error {
 }
 
 func handleEnterNotifyEvent(e xproto.EnterNotifyEvent) error {
-	activeWindow = &e.Event
+	for _, ws := range workspaces {
+		if c := ws.GetClientByWin(e.Event); c != nil {
+			activeClient = c
+		}
+	}
 	prop, err := xproto.GetProperty(xc, false, e.Event, atomWMProtocols,
 		xproto.GetPropertyTypeAny, 0, 64).Reply()
 	if err != nil {
@@ -520,7 +525,7 @@ TakeFocusPropLoop:
 				xproto.EventMaskNoEvent,
 				string(xproto.ClientMessageEvent{
 					Format: 32,
-					Window: *activeWindow,
+					Window: activeClient.Window,
 					Type:   atomWMProtocols,
 					Data: xproto.ClientMessageDataUnionData32New([]uint32{
 						uint32(atomWMTakeFocus),

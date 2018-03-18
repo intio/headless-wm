@@ -8,11 +8,11 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 )
 
-type ManagedWindow struct {
+type Client struct {
 	xproto.Window
 }
 type Column struct {
-	Windows []*ManagedWindow
+	Windows []*Client
 }
 type Workspace struct {
 	Screen  *xinerama.ScreenInfo
@@ -24,7 +24,7 @@ type Workspace struct {
 var workspaces = map[string]*Workspace{
 	"default": &Workspace{},
 }
-var activeWindow *xproto.Window
+var activeClient *Client
 
 func (w *Workspace) Add(win xproto.Window) error {
 	// Ensure that we can manage this window.
@@ -54,7 +54,7 @@ func (w *Workspace) Add(win xproto.Window) error {
 	switch len(w.columns) {
 	case 0:
 		w.columns = []*Column{
-			&Column{Windows: []*ManagedWindow{&ManagedWindow{win}}},
+			&Column{Windows: []*Client{&Client{win}}},
 		}
 	default:
 		// Add to the first empty column we can find, and shortcircuit out
@@ -63,7 +63,7 @@ func (w *Workspace) Add(win xproto.Window) error {
 			if len(c.Windows) == 0 {
 				w.columns[i].Windows = append(
 					w.columns[i].Windows,
-					&ManagedWindow{win},
+					&Client{win},
 				)
 				return nil
 			}
@@ -71,7 +71,7 @@ func (w *Workspace) Add(win xproto.Window) error {
 
 		// No empty columns, add to the last one.
 		i := len(w.columns) - 1
-		w.columns[i].Windows = append(w.columns[i].Windows, &ManagedWindow{win})
+		w.columns[i].Windows = append(w.columns[i].Windows, &Client{win})
 	}
 	return nil
 }
@@ -105,13 +105,13 @@ func (w *Workspace) TileWindows() error {
 	}
 	n := uint32(len(w.columns))
 	if n == 0 {
-		return fmt.Errorf("No columns to tile")
+		return nil
 	}
 
 	size := uint32(w.Screen.Width) / n
 	var err error
 
-	prevWin := activeWindow
+	prevWin := activeClient
 	for i, c := range w.columns {
 		if err != nil {
 			// Don't overwrite err if there's an error, but still
@@ -123,15 +123,15 @@ func (w *Workspace) TileWindows() error {
 	}
 	if prevWin != nil {
 		if err := xproto.WarpPointerChecked(
-			xc,       // conn
-			0,        // src
-			*prevWin, // dst
-			0,        // src x
-			0,        // src x
-			0,        // src w
-			0,        // src h
-			10,       // src x
-			10,       // dst y
+			xc,             // conn
+			0,              // src
+			prevWin.Window, // dst
+			0,              // src x
+			0,              // src x
+			0,              // src w
+			0,              // src h
+			10,             // src x
+			10,             // dst y
 		).Check(); err != nil {
 			log.Print(err)
 		}
@@ -139,8 +139,8 @@ func (w *Workspace) TileWindows() error {
 	return err
 }
 
-// TileColumn sends ConfigureWindow messages to tile the ManagedWindows
-// Using the geometry of the parameters passed
+// TileColumn sends ConfigureWindow messages to tile the Clients using
+// the geometry of the parameters passed
 func (c Column) TileColumn(xstart, colwidth, colheight uint32) error {
 	n := uint32(len(c.Windows))
 	if n == 0 {
@@ -169,9 +169,20 @@ func (c Column) TileColumn(xstart, colwidth, colheight uint32) error {
 	return err
 }
 
-// RemoveWindow removes a window from the workspace. It returns
-// an error if the window is not being managed by w.
-func (wp *Workspace) RemoveWindow(w xproto.Window) error {
+// HasWindow reports whether this workspace is managing that window.
+func (wp *Workspace) HasWindow(w xproto.Window) bool {
+	for _, column := range wp.columns {
+		for _, win := range column.Windows {
+			if w == win.Window {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// RemoveWindow removes a window from the workspace.
+func (wp *Workspace) RemoveWindow(w xproto.Window) {
 	for colnum, column := range wp.columns {
 		idx := -1
 		for i, candwin := range column.Windows {
@@ -190,8 +201,8 @@ func (wp *Workspace) RemoveWindow(w xproto.Window) error {
 			if wp.maximizedWindow != nil && w == *wp.maximizedWindow {
 				wp.maximizedWindow = nil
 			}
-			return nil
+			return
 		}
 	}
-	return fmt.Errorf("Window not managed by workspace")
+	return
 }

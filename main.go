@@ -378,9 +378,9 @@ func initWorkspaces() {
 				log.Println(err)
 			}
 		}
-		if len(attachedScreens) == 0 {
-			panic("no attached screens!?")
-		}
+	}
+	if len(attachedScreens) == 0 {
+		panic("no attached screens!?")
 	}
 	for _, workspace := range workspaces {
 		workspace.Screen = &attachedScreens[0]

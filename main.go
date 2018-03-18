@@ -414,18 +414,9 @@ func handleEvent() error {
 	}
 	switch e := xev.(type) {
 	case xproto.KeyPressEvent:
-		return HandleKeyPressEvent(e)
+		return handleKeyPressEvent(e)
 	case xproto.DestroyNotifyEvent:
-		for _, w := range workspaces {
-			if err := w.RemoveWindow(e.Window); err == nil {
-				w.TileWindows()
-			}
-		}
-		if activeWindow != nil && e.Window == *activeWindow {
-			activeWindow = nil
-			// Cannot call 'replyChecked' on a cookie that is not expecting a *reply* or an error.
-			xproto.SetInputFocus(xc, xproto.InputFocusPointerRoot, xroot.Root, xproto.TimeCurrentTime)
-		}
+		return handleDestroyNotifyEvent(e)
 	case xproto.ConfigureRequestEvent:
 		ev := xproto.ConfigureNotifyEvent{
 			Event:            e.Window,
@@ -448,7 +439,6 @@ func handleEvent() error {
 		}
 	case xproto.EnterNotifyEvent:
 		activeWindow = &e.Event
-
 		prop, err := xproto.GetProperty(xc, false, e.Event, atomWMProtocols,
 			xproto.GetPropertyTypeAny, 0, 64).Reply()
 		focused := false
@@ -489,13 +479,27 @@ func handleEvent() error {
 	return nil
 }
 
-func HandleKeyPressEvent(key xproto.KeyPressEvent) error {
+func handleKeyPressEvent(key xproto.KeyPressEvent) error {
 	for _, grab := range grabs {
 		if grab.modifiers == key.State &&
 			grab.sym == keymap[key.Detail][0] &&
 			grab.callback != nil {
 			return grab.callback()
 		}
+	}
+	return nil
+}
+
+func handleDestroyNotifyEvent(e xproto.DestroyNotifyEvent) error {
+	for _, w := range workspaces {
+		if err := w.RemoveWindow(e.Window); err == nil {
+			w.TileWindows()
+		}
+	}
+	if activeWindow != nil && e.Window == *activeWindow {
+		activeWindow = nil
+		// Cannot call 'replyChecked' on a cookie that is not expecting a *reply* or an error.
+		xproto.SetInputFocus(xc, xproto.InputFocusPointerRoot, xroot.Root, xproto.TimeCurrentTime)
 	}
 	return nil
 }

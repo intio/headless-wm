@@ -373,9 +373,11 @@ func initWorkspaces() {
 	}
 	if tree != nil {
 		defaultw := workspaces["default"]
-		for _, c := range tree.Children {
-			if err := defaultw.Add(c); err != nil {
+		for _, win := range tree.Children {
+			if c, err := NewClient(win); err != nil {
 				log.Println(err)
+			} else {
+				defaultw.Add(c)
 			}
 		}
 	}
@@ -497,8 +499,13 @@ func handleMapRequestEvent(e xproto.MapRequestEvent) error {
 	if err != nil || !winattrib.OverrideRedirect {
 		w := workspaces["default"]
 		xproto.MapWindowChecked(xc, e.Window)
-		w.Add(e.Window)
-		w.Arrange()
+		c, err := NewClient(e.Window)
+		if err != nil {
+			w.Add(c)
+			w.Arrange()
+		} else {
+			return err
+		}
 	}
 	return err
 }

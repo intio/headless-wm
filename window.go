@@ -8,8 +8,19 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 )
 
+// Client is an X11 client managed by us.
 type Client struct {
-	xproto.Window
+	// Window represents X11's internal window ID.
+	Window xproto.Window
+	// X and Y are the coordinates of the topleft corner of the window.
+	X, Y uint32
+	// W and H are width and height. Zero means don't change.
+	W, H uint32
+	// Width of the window border (1 by default).
+	BorderWidth uint32
+	// one of: StackModeAbove (default), StackModeBelow,
+	// StackModeTopIf, StackModeBottomIf, StackModeOpposite.
+	StackMode uint32
 }
 type Column struct {
 	Clients []*Client
@@ -26,54 +37,81 @@ var workspaces = map[string]*Workspace{
 }
 var activeClient *Client
 
-func (w *Workspace) Add(win xproto.Window) error {
+// NewClient initializes the Client struct from Window ID
+func NewClient(w xproto.Window) (*Client, error) {
+	c := &Client{
+		Window:      w,
+		X:           0,
+		Y:           0,
+		W:           0,
+		H:           0,
+		BorderWidth: 1,
+		StackMode:   xproto.StackModeAbove,
+	}
+
 	// Ensure that we can manage this window.
-	if err := xproto.ConfigureWindowChecked(
-		xc,
-		win,
-		xproto.ConfigWindowBorderWidth,
-		[]uint32{
-			2,
-		}).Check(); err != nil {
-		return err
+	if err := c.Configure(); err != nil {
+		return nil, err
 	}
 
 	// Get notifications when this window is deleted.
 	if err := xproto.ChangeWindowAttributesChecked(
 		xc,
-		win,
+		c.Window,
 		xproto.CwEventMask,
 		[]uint32{
 			xproto.EventMaskStructureNotify |
 				xproto.EventMaskEnterWindow,
 		},
 	).Check(); err != nil {
-		return err
+		return nil, err
+	}
+	return c, nil
+}
+
+// Configure sends a configuration request to inflict Client's
+// internal state on the real world.
+func (c *Client) Configure() error {
+	valueMask := uint16(xproto.ConfigWindowX |
+		xproto.ConfigWindowY |
+		xproto.ConfigWindowBorderWidth |
+		xproto.ConfigWindowStackMode)
+	valueList := []uint32{}
+	valueList = append(valueList, c.X, c.Y)
+	if c.W > 0 {
+		valueMask |= xproto.ConfigWindowWidth
+		valueList = append(valueList, c.W)
+	}
+	if c.H > 0 {
+		valueMask |= xproto.ConfigWindowHeight
+		valueList = append(valueList, c.H)
+	}
+	valueList = append(valueList, c.BorderWidth, c.StackMode)
+	return xproto.ConfigureWindowChecked(
+		xc,
+		c.Window,
+		valueMask,
+		valueList,
+	).Check()
+}
+
+func (w *Workspace) Add(c *Client) {
+	if len(w.columns) == 0 {
+		w.columns = []*Column{&Column{Clients: []*Client{}}}
 	}
 
-	switch len(w.columns) {
-	case 0:
-		w.columns = []*Column{
-			&Column{Clients: []*Client{&Client{win}}},
+	// Add to the first empty column we can find, and shortcircuit out
+	// if applicable.
+	for i, col := range w.columns {
+		if len(col.Clients) == 0 {
+			w.columns[i].Clients = append(w.columns[i].Clients, c)
+			return
 		}
-	default:
-		// Add to the first empty column we can find, and shortcircuit out
-		// if applicable.
-		for i, c := range w.columns {
-			if len(c.Clients) == 0 {
-				w.columns[i].Clients = append(
-					w.columns[i].Clients,
-					&Client{win},
-				)
-				return nil
-			}
-		}
-
-		// No empty columns, add to the last one.
-		i := len(w.columns) - 1
-		w.columns[i].Clients = append(w.columns[i].Clients, &Client{win})
 	}
-	return nil
+
+	// No empty columns, add to the last one.
+	i := len(w.columns) - 1
+	w.columns[i].Clients = append(w.columns[i].Clients, c)
 }
 
 // Arrange arranges all the windows of the workspace into the screen

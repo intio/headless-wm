@@ -21,7 +21,9 @@ type Workspace struct {
 	maximizedWindow *xproto.Window
 }
 
-var workspaces map[string]*Workspace
+var workspaces = map[string]*Workspace{
+	"default": &Workspace{},
+}
 var activeWindow *xproto.Window
 
 func (w *Workspace) Add(win xproto.Window) error {

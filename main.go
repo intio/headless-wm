@@ -357,6 +357,30 @@ func initKeys() {
 	}
 }
 
+func initWorkspaces() {
+	tree, err := xproto.QueryTree(xc, xroot.Root).Reply()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if tree != nil {
+		defaultw := workspaces["default"]
+		for _, c := range tree.Children {
+			if err := defaultw.Add(c); err != nil {
+				log.Println(err)
+			}
+		}
+		if len(attachedScreens) == 0 {
+			panic("no attached screens!?")
+		}
+	}
+	for _, workspace := range workspaces {
+		workspace.Screen = &attachedScreens[0]
+		if err := workspace.TileWindows(); err != nil {
+			log.Println(err)
+		}
+	}
+}
+
 func main() {
 	var err error
 	xc, err = xgb.NewConn()
@@ -369,27 +393,7 @@ func main() {
 	initAtoms()
 	initWM()
 	initKeys()
-
-	tree, err := xproto.QueryTree(xc, xroot.Root).Reply()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if tree != nil {
-		workspaces = make(map[string]*Workspace)
-		defaultw := &Workspace{}
-		for _, c := range tree.Children {
-			if err := defaultw.Add(c); err != nil {
-				log.Println(err)
-			}
-		}
-		if len(attachedScreens) > 0 {
-			defaultw.Screen = &attachedScreens[0]
-		}
-		workspaces["default"] = defaultw
-		if err := defaultw.TileWindows(); err != nil {
-			log.Println(err)
-		}
-	}
+	initWorkspaces()
 
 	// Main X Event loop
 eventloop:

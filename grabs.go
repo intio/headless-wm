@@ -84,6 +84,47 @@ func (wm *WM) getGrabs() []*Grab {
 				return wm.setLayoutOnActiveWorkspace(&ColumnLayout{})
 			},
 		},
+
+		{
+			sym:       XK_1,
+			modifiers: xproto.ModMask1,
+			callback:  func() error { return wm.SetActiveWorkspaceIdx(0) },
+		},
+		{
+			sym:       XK_2,
+			modifiers: xproto.ModMask1,
+			callback:  func() error { return wm.SetActiveWorkspaceIdx(1) },
+		},
+		{
+			sym:       XK_3,
+			modifiers: xproto.ModMask1,
+			callback:  func() error { return wm.SetActiveWorkspaceIdx(2) },
+		},
+		{
+			sym:       XK_4,
+			modifiers: xproto.ModMask1,
+			callback:  func() error { return wm.SetActiveWorkspaceIdx(3) },
+		},
+		{
+			sym:       XK_5,
+			modifiers: xproto.ModMask1,
+			callback:  func() error { return wm.SetActiveWorkspaceIdx(4) },
+		},
+		{
+			sym:       XK_6,
+			modifiers: xproto.ModMask1,
+			callback:  func() error { return wm.SetActiveWorkspaceIdx(5) },
+		},
+		{
+			sym:       XK_7,
+			modifiers: xproto.ModMask1,
+			callback:  func() error { return wm.SetActiveWorkspaceIdx(6) },
+		},
+		{
+			sym:       XK_8,
+			modifiers: xproto.ModMask1,
+			callback:  func() error { return wm.SetActiveWorkspaceIdx(7) },
+		},
 	}
 }
 

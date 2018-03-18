@@ -18,6 +18,7 @@ type WM struct {
 	grabs  []*Grab
 	keymap [256][]xproto.Keysym
 
+	clients      map[xproto.Window]*Client
 	activeClient *Client
 
 	workspaces []*Workspace
@@ -28,11 +29,7 @@ type WM struct {
 // instance. No X11 calls are made until WM.Init() is called.
 func NewWM() *WM {
 	return &WM{
-		workspaces: []*Workspace{
-			&Workspace{
-				Layout: &ColumnLayout{},
-			},
-		},
+		clients: map[xproto.Window]*Client{},
 	}
 }
 
@@ -136,34 +133,68 @@ func (wm *WM) initWorkspaces() error {
 	if err != nil {
 		return err
 	}
-	if tree != nil {
-		w := wm.GetActiveWorkspace()
-		for _, win := range tree.Children {
-			if c, err := NewClient(wm.xc, win); err != nil {
-				return err
-			} else {
-				w.AddClient(c)
-			}
-		}
+	if tree == nil {
+		return nil
 	}
-	if len(wm.attachedScreens) == 0 {
-		panic("no attached screens!?")
+	w := &Workspace{
+		Layout: &ColumnLayout{},
 	}
-	for _, workspace := range wm.workspaces {
-		workspace.Screen = &wm.attachedScreens[0]
-		if err := workspace.Arrange(); err != nil {
+	wm.AddWorkspace(w)
+	for _, win := range tree.Children {
+		c := NewClient(wm.xc, win)
+		err := c.Init()
+		if err != nil {
 			return err
 		}
+		wm.AddClient(c)
+		w.AddClient(c)
 	}
+	w.Arrange()
 	return nil
+}
+
+// AddClient adds the client to WM's internal client list.
+func (wm *WM) AddClient(c *Client) {
+	wm.clients[c.Window] = c
+}
+
+// GetClient returns the Client from associated Window ID, or nil.
+func (wm *WM) GetClient(w xproto.Window) *Client {
+	c, _ := wm.clients[w]
+	return c
+}
+
+// AddWorkspace appends the given Workspace at the end of the list,
+// and attaches it to the first screen.
+func (wm *WM) AddWorkspace(w *Workspace) {
+	wm.workspaces = append(wm.workspaces, w)
+	w.Screen = &wm.attachedScreens[0]
 }
 
 // GetActiveWorkspace returns the Workspace containing the current
 // active Client, or nil if no Client is active.
 func (wm *WM) GetActiveWorkspace() *Workspace {
 	w := wm.workspaces[wm.activeWs]
-	if wm.activeClient != nil && !w.HasWindow(wm.activeClient.Window) {
+	if wm.activeClient != nil && !w.HasClient(wm.activeClient) {
 		panic("marked active but don't have the active client")
 	}
 	return w
+}
+
+// SetActiveWorkspaceIdx switches to the given workspace (by index).
+func (wm *WM) SetActiveWorkspaceIdx(i int) error {
+	if i < 0 || i >= len(wm.workspaces) {
+		return nil
+	}
+	if wm.activeWs == i {
+		return nil
+	}
+	if err := wm.workspaces[wm.activeWs].Hide(); err != nil {
+		return err
+	}
+	wm.activeWs = i
+	if err := wm.workspaces[wm.activeWs].Show(); err != nil {
+		return err
+	}
+	return nil
 }

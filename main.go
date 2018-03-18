@@ -35,6 +35,10 @@ func main() {
 	}
 	defer wm.Deinit()
 
+	for i := 1; i < 8; i++ {
+		wm.AddWorkspace(&Workspace{Layout: &ColumnLayout{}})
+	}
+
 	for {
 		err := wm.handleEvent()
 		switch err {

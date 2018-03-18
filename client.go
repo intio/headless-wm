@@ -25,9 +25,12 @@ type Client struct {
 	xc *xgb.Conn
 }
 
-// NewClient initializes the Client struct from Window ID
-func NewClient(xc *xgb.Conn, w xproto.Window) (*Client, error) {
-	c := &Client{
+// NewClient allocates the Client struct, with the X socket and Window
+// ID. Usually you won't call this directly, unless in response to a
+// MapRequest - use WM.GetClient. You should call Client.Init
+// afterwards.
+func NewClient(xc *xgb.Conn, w xproto.Window) *Client {
+	return &Client{
 		Window:      w,
 		X:           0,
 		Y:           0,
@@ -38,10 +41,13 @@ func NewClient(xc *xgb.Conn, w xproto.Window) (*Client, error) {
 
 		xc: xc,
 	}
+}
 
+// Init initializes the client - initial configuration and event mask.
+func (c *Client) Init() error {
 	// Ensure that we can manage this window.
 	if err := c.Configure(); err != nil {
-		return nil, err
+		return err
 	}
 
 	// Get notifications when this window is deleted.
@@ -54,9 +60,9 @@ func NewClient(xc *xgb.Conn, w xproto.Window) (*Client, error) {
 				xproto.EventMaskEnterWindow,
 		},
 	).Check(); err != nil {
-		return nil, err
+		return err
 	}
-	return c, nil
+	return nil
 }
 
 // Configure sends a configuration request to inflict Client's
@@ -154,4 +160,14 @@ func (c *Client) CloseGracefully() error {
 // CloseForcefully destroys the window.
 func (c *Client) CloseForcefully() error {
 	return xproto.DestroyWindowChecked(c.xc, c.Window).Check()
+}
+
+// Hide requests the client to unmap (hide).
+func (c *Client) Hide() error {
+	return xproto.UnmapWindowChecked(c.xc, c.Window).Check()
+}
+
+// Show requests the client to show up again.
+func (c *Client) Show() error {
+	return xproto.MapWindowChecked(c.xc, c.Window).Check()
 }

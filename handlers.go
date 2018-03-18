@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+
 	"github.com/BurntSushi/xgb/xproto"
 )
 
@@ -12,8 +14,8 @@ func (wm *WM) handleEvent() error {
 	switch e := xev.(type) {
 	case xproto.KeyPressEvent:
 		return wm.handleKeyPressEvent(e)
-	case xproto.KeyReleaseEvent: // xxx
-		return nil
+	case xproto.KeyReleaseEvent:
+		return wm.handleKeyReleaseEvent(e)
 	case xproto.DestroyNotifyEvent:
 		return wm.handleDestroyNotifyEvent(e)
 	case xproto.ConfigureRequestEvent:
@@ -22,8 +24,14 @@ func (wm *WM) handleEvent() error {
 		return wm.handleMapRequestEvent(e)
 	case xproto.EnterNotifyEvent:
 		return wm.handleEnterNotifyEvent(e)
+	case xproto.MapNotifyEvent:
+		return wm.handleMapNotifyEvent(e)
+	case xproto.UnmapNotifyEvent:
+		return wm.handleUnmapNotifyEvent(e)
+	case xproto.ConfigureNotifyEvent:
+		return wm.handleConfigureNotifyEvent(e)
 	default:
-		// log.Printf("Unhandled event: %#v", xev)
+		log.Printf("Unhandled event: %#v", xev)
 	}
 	return nil
 }
@@ -39,14 +47,19 @@ func (wm *WM) handleKeyPressEvent(key xproto.KeyPressEvent) error {
 	return nil
 }
 
+func (wm *WM) handleKeyReleaseEvent(key xproto.KeyReleaseEvent) error {
+	return nil
+}
+
 func (wm *WM) handleDestroyNotifyEvent(e xproto.DestroyNotifyEvent) error {
+	c := wm.GetClient(e.Window)
 	for _, w := range wm.workspaces {
-		if w.HasWindow(e.Window) {
-			w.RemoveWindow(e.Window)
+		if w.HasClient(c) {
+			w.RemoveClient(c)
 			w.Arrange()
 		}
 	}
-	if wm.activeClient != nil && e.Window == wm.activeClient.Window {
+	if wm.activeClient != nil && wm.activeClient == c {
 		wm.activeClient = nil
 		// Cannot call 'replyChecked' on a cookie that is not expecting a *reply* or an error.
 		xproto.SetInputFocus(
@@ -87,8 +100,10 @@ func (wm *WM) handleMapRequestEvent(e xproto.MapRequestEvent) error {
 	if err != nil || !winattrib.OverrideRedirect {
 		w := wm.GetActiveWorkspace()
 		xproto.MapWindowChecked(wm.xc, e.Window)
-		c, err := NewClient(wm.xc, e.Window)
+		c := NewClient(wm.xc, e.Window)
+		err := c.Init()
 		if err == nil {
+			wm.AddClient(c)
 			w.AddClient(c)
 			w.Arrange()
 		} else {
@@ -149,5 +164,31 @@ TakeFocusPropLoop:
 			e.Time,  // timestamp
 		)
 	}
+	return nil
+}
+
+func (wm *WM) handleMapNotifyEvent(e xproto.MapNotifyEvent) error {
+	// TODO: focus stealing prevention?
+	c := wm.GetClient(e.Window)
+	if c == nil {
+		panic("mapped a window that was not being managed!?")
+	}
+	wm.activeClient = c
+	return nil
+}
+
+func (wm *WM) handleUnmapNotifyEvent(e xproto.UnmapNotifyEvent) error {
+	c := wm.GetClient(e.Window)
+	if c == nil {
+		panic("unmapped a window that was not being managed!?")
+	}
+	if wm.activeClient == c {
+		// TODO: look for the active window?
+		wm.activeClient = nil
+	}
+	return nil
+}
+
+func (wm *WM) handleConfigureNotifyEvent(e xproto.ConfigureNotifyEvent) error {
 	return nil
 }

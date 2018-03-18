@@ -422,41 +422,7 @@ func handleEvent() error {
 	case xproto.MapRequestEvent:
 		return handleMapRequestEvent(e)
 	case xproto.EnterNotifyEvent:
-		activeWindow = &e.Event
-		prop, err := xproto.GetProperty(xc, false, e.Event, atomWMProtocols,
-			xproto.GetPropertyTypeAny, 0, 64).Reply()
-		focused := false
-		if err == nil {
-		TakeFocusPropLoop:
-			for v := prop.Value; len(v) >= 4; v = v[4:] {
-				switch decodeAtom(v) {
-				case atomWMTakeFocus:
-					xproto.SendEventChecked(
-						xc,
-						false,
-						e.Event,
-						xproto.EventMaskNoEvent,
-						string(xproto.ClientMessageEvent{
-							Format: 32,
-							Window: *activeWindow,
-							Type:   atomWMProtocols,
-							Data: xproto.ClientMessageDataUnionData32New([]uint32{
-								uint32(atomWMTakeFocus),
-								uint32(e.Time),
-								0,
-								0,
-								0,
-							}),
-						}.Bytes())).Check()
-					focused = true
-					break TakeFocusPropLoop
-				}
-			}
-		}
-		if !focused {
-			// Cannot call 'replyChecked' on a cookie that is not expecting a *reply* or an error.
-			xproto.SetInputFocus(xc, xproto.InputFocusPointerRoot, e.Event, e.Time)
-		}
+		return handleEnterNotifyEvent(e)
 	default:
 		log.Println(xev)
 	}
@@ -513,6 +479,45 @@ func handleMapRequestEvent(e xproto.MapRequestEvent) error {
 		w.TileWindows()
 	}
 	return err
+}
+
+func handleEnterNotifyEvent(e xproto.EnterNotifyEvent) error {
+	activeWindow = &e.Event
+	prop, err := xproto.GetProperty(xc, false, e.Event, atomWMProtocols,
+		xproto.GetPropertyTypeAny, 0, 64).Reply()
+	if err != nil {
+		return err
+	}
+	focused := false
+TakeFocusPropLoop:
+	for v := prop.Value; len(v) >= 4; v = v[4:] {
+		if decodeAtom(v) == atomWMTakeFocus {
+			xproto.SendEventChecked(
+				xc,
+				false,
+				e.Event,
+				xproto.EventMaskNoEvent,
+				string(xproto.ClientMessageEvent{
+					Format: 32,
+					Window: *activeWindow,
+					Type:   atomWMProtocols,
+					Data: xproto.ClientMessageDataUnionData32New([]uint32{
+						uint32(atomWMTakeFocus),
+						uint32(e.Time),
+						0,
+						0,
+						0,
+					}),
+				}.Bytes())).Check()
+			focused = true
+			break TakeFocusPropLoop
+		}
+	}
+	if !focused {
+		// Cannot call 'replyChecked' on a cookie that is not expecting a *reply* or an error.
+		xproto.SetInputFocus(xc, xproto.InputFocusPointerRoot, e.Event, e.Time)
+	}
+	return nil
 }
 
 func getAtom(name string) xproto.Atom {

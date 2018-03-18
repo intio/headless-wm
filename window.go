@@ -168,7 +168,7 @@ func (w *Workspace) Arrange() error {
 			0,              // src x
 			0,              // src w
 			0,              // src h
-			10,             // src x
+			10,             // dst x
 			10,             // dst y
 		).Check(); err != nil {
 			log.Print(err)

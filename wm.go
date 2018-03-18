@@ -1,12 +1,15 @@
 package main
 
 import (
+	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xinerama"
 	"github.com/BurntSushi/xgb/xproto"
 )
 
 // WM holds the global window manager state.
 type WM struct {
+	xc *xgb.Conn
+
 	xroot           xproto.ScreenInfo
 	attachedScreens []xinerama.ScreenInfo
 

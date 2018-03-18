@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 
+	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 )
 
@@ -19,10 +20,13 @@ type Client struct {
 	// one of: StackModeAbove (default), StackModeBelow,
 	// StackModeTopIf, StackModeBottomIf, StackModeOpposite.
 	StackMode uint32
+
+	// xc is our private pointer to the X11 socket
+	xc *xgb.Conn
 }
 
 // NewClient initializes the Client struct from Window ID
-func NewClient(w xproto.Window) (*Client, error) {
+func NewClient(xc *xgb.Conn, w xproto.Window) (*Client, error) {
 	c := &Client{
 		Window:      w,
 		X:           0,
@@ -31,6 +35,8 @@ func NewClient(w xproto.Window) (*Client, error) {
 		H:           0,
 		BorderWidth: 1,
 		StackMode:   xproto.StackModeAbove,
+
+		xc: xc,
 	}
 
 	// Ensure that we can manage this window.
@@ -40,7 +46,7 @@ func NewClient(w xproto.Window) (*Client, error) {
 
 	// Get notifications when this window is deleted.
 	if err := xproto.ChangeWindowAttributesChecked(
-		xc,
+		c.xc,
 		c.Window,
 		xproto.CwEventMask,
 		[]uint32{
@@ -72,7 +78,7 @@ func (c *Client) Configure() error {
 	}
 	valueList = append(valueList, c.BorderWidth, c.StackMode)
 	return xproto.ConfigureWindowChecked(
-		xc,
+		c.xc,
 		c.Window,
 		valueMask,
 		valueList,
@@ -82,7 +88,7 @@ func (c *Client) Configure() error {
 // WarpPointer puts the mouse pointer inside of this client's window.
 func (c *Client) WarpPointer() error {
 	return xproto.WarpPointerChecked(
-		xc,       // conn
+		c.xc,     // conn
 		0,        // src
 		c.Window, // dst
 		0,        // src x
@@ -94,9 +100,12 @@ func (c *Client) WarpPointer() error {
 	).Check()
 }
 
+// CloseGracefully will do the ICCCM 4.2.8 dance to close the window
+// nicely. If that fails or is impossible, CloseForcefully will be
+// called for you next.
 func (c *Client) CloseGracefully() error {
 	prop, err := xproto.GetProperty(
-		xc,
+		c.xc,                      // conn
 		false,                     // delete
 		c.Window,                  // window
 		atomWMProtocols,           // property
@@ -129,7 +138,7 @@ func (c *Client) CloseGracefully() error {
 				}),
 			}
 			return xproto.SendEventChecked(
-				xc,
+				c.xc,                    // conn
 				false,                   // propagate
 				c.Window,                // destination
 				xproto.EventMaskNoEvent, // eventmask
@@ -142,6 +151,7 @@ func (c *Client) CloseGracefully() error {
 
 }
 
+// CloseForcefully destroys the window.
 func (c *Client) CloseForcefully() error {
-	return xproto.DestroyWindowChecked(xc, c.Window).Check()
+	return xproto.DestroyWindowChecked(c.xc, c.Window).Check()
 }

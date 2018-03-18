@@ -5,7 +5,7 @@ import (
 )
 
 func (wm *WM) handleEvent() error {
-	xev, err := xc.WaitForEvent()
+	xev, err := wm.xc.WaitForEvent()
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func (wm *WM) handleDestroyNotifyEvent(e xproto.DestroyNotifyEvent) error {
 		wm.activeClient = nil
 		// Cannot call 'replyChecked' on a cookie that is not expecting a *reply* or an error.
 		xproto.SetInputFocus(
-			xc,
+			wm.xc, // conn
 			xproto.InputFocusPointerRoot, // revert to
 			wm.xroot.Root,                // focus
 			xproto.TimeCurrentTime,       // time
@@ -72,7 +72,7 @@ func (wm *WM) handleConfigureRequestEvent(e xproto.ConfigureRequestEvent) error 
 		OverrideRedirect: false,
 	}
 	xproto.SendEventChecked(
-		xc,
+		wm.xc,                           // conn
 		false,                           // propagate
 		e.Window,                        // target
 		xproto.EventMaskStructureNotify, // mask
@@ -83,11 +83,11 @@ func (wm *WM) handleConfigureRequestEvent(e xproto.ConfigureRequestEvent) error 
 
 func (wm *WM) handleMapRequestEvent(e xproto.MapRequestEvent) error {
 	var err error
-	winattrib, err := xproto.GetWindowAttributes(xc, e.Window).Reply()
+	winattrib, err := xproto.GetWindowAttributes(wm.xc, e.Window).Reply()
 	if err != nil || !winattrib.OverrideRedirect {
 		w := wm.GetActiveWorkspace()
-		xproto.MapWindowChecked(xc, e.Window)
-		c, err := NewClient(e.Window)
+		xproto.MapWindowChecked(wm.xc, e.Window)
+		c, err := NewClient(wm.xc, e.Window)
 		if err == nil {
 			w.AddClient(c)
 			w.Arrange()
@@ -110,7 +110,7 @@ func (wm *WM) handleEnterNotifyEvent(e xproto.EnterNotifyEvent) error {
 	if wm.activeClient == nil {
 		panic("no workspace is managing this window - what happened?")
 	}
-	prop, err := xproto.GetProperty(xc, false, e.Event, atomWMProtocols,
+	prop, err := xproto.GetProperty(wm.xc, false, e.Event, atomWMProtocols,
 		xproto.GetPropertyTypeAny, 0, 64).Reply()
 	if err != nil {
 		return err
@@ -120,7 +120,7 @@ TakeFocusPropLoop:
 	for v := prop.Value; len(v) >= 4; v = v[4:] {
 		if decodeAtom(v) == atomWMTakeFocus {
 			xproto.SendEventChecked(
-				xc,
+				wm.xc,
 				false,
 				e.Event,
 				xproto.EventMaskNoEvent,
@@ -143,7 +143,7 @@ TakeFocusPropLoop:
 	if !focused {
 		// Cannot call 'replyChecked' on a cookie that is not expecting a *reply* or an error.
 		xproto.SetInputFocus(
-			xc,
+			wm.xc,
 			xproto.InputFocusPointerRoot, // revert
 			e.Event, // focus
 			e.Time,  // timestamp

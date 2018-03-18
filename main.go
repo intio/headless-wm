@@ -10,7 +10,6 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 )
 
-var xc *xgb.Conn
 var errorQuit error = errors.New("Quit")
 
 func (wm *WM) closeClientGracefully() error {
@@ -30,14 +29,14 @@ func (wm *WM) closeClientForcefully() error {
 }
 
 func (wm *WM) initScreens() {
-	setup := xproto.Setup(xc)
+	setup := xproto.Setup(wm.xc)
 	if setup == nil || len(setup.Roots) < 1 {
 		log.Fatal("Could not parse SetupInfo.")
 	}
-	if err := xinerama.Init(xc); err != nil {
+	if err := xinerama.Init(wm.xc); err != nil {
 		log.Fatal(err)
 	}
-	if r, err := xinerama.QueryScreens(xc).Reply(); err != nil {
+	if r, err := xinerama.QueryScreens(wm.xc).Reply(); err != nil {
 		log.Fatal(err)
 	} else {
 		if len(r.ScreenInfo) == 0 {
@@ -55,7 +54,7 @@ func (wm *WM) initScreens() {
 		}
 	}
 
-	coninfo := xproto.Setup(xc)
+	coninfo := xproto.Setup(wm.xc)
 	if coninfo == nil {
 		log.Fatal("Could not parse X connection info")
 	}
@@ -67,7 +66,7 @@ func (wm *WM) initScreens() {
 
 func (wm *WM) initWM() {
 	err := xproto.ChangeWindowAttributesChecked(
-		xc,
+		wm.xc,
 		wm.xroot.Root,
 		xproto.CwEventMask,
 		[]uint32{
@@ -88,14 +87,14 @@ func (wm *WM) initWM() {
 }
 
 func (wm *WM) initWorkspaces() {
-	tree, err := xproto.QueryTree(xc, wm.xroot.Root).Reply()
+	tree, err := xproto.QueryTree(wm.xc, wm.xroot.Root).Reply()
 	if err != nil {
 		log.Fatal(err)
 	}
 	if tree != nil {
 		w := wm.GetActiveWorkspace()
 		for _, win := range tree.Children {
-			if c, err := NewClient(win); err != nil {
+			if c, err := NewClient(wm.xc, win); err != nil {
 				log.Println(err)
 			} else {
 				w.AddClient(c)
@@ -123,14 +122,14 @@ func main() {
 	}
 
 	var err error
-	xc, err = xgb.NewConn()
+	wm.xc, err = xgb.NewConn()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer xc.Close()
+	defer wm.xc.Close()
 
 	wm.initScreens()
-	initAtoms()
+	wm.initAtoms()
 	wm.initWM()
 	wm.initKeys()
 	wm.initWorkspaces()

@@ -93,7 +93,7 @@ func (wm *WM) initKeys() {
 		hiKey = 255
 	)
 
-	m := xproto.GetKeyboardMapping(xc, loKey, hiKey-loKey+1)
+	m := xproto.GetKeyboardMapping(wm.xc, loKey, hiKey-loKey+1)
 	reply, err := m.Reply()
 	if err != nil {
 		log.Fatal(err)
@@ -120,7 +120,7 @@ func (wm *WM) initKeys() {
 	for _, grabbed := range wm.grabs {
 		for _, code := range grabbed.codes {
 			if err := xproto.GrabKeyChecked(
-				xc,
+				wm.xc,
 				false,
 				wm.xroot.Root,
 				grabbed.modifiers,

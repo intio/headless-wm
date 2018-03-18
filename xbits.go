@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 )
 
@@ -11,13 +12,13 @@ var (
 	atomWMTakeFocus    xproto.Atom
 )
 
-func initAtoms() {
-	atomWMProtocols = getAtom("WM_PROTOCOLS")
-	atomWMDeleteWindow = getAtom("WM_DELETE_WINDOW")
-	atomWMTakeFocus = getAtom("WM_TAKE_FOCUS")
+func (wm *WM) initAtoms() {
+	atomWMProtocols = getAtom(wm.xc, "WM_PROTOCOLS")
+	atomWMDeleteWindow = getAtom(wm.xc, "WM_DELETE_WINDOW")
+	atomWMTakeFocus = getAtom(wm.xc, "WM_TAKE_FOCUS")
 }
 
-func getAtom(name string) xproto.Atom {
+func getAtom(xc *xgb.Conn, name string) xproto.Atom {
 	rply, err := xproto.InternAtom(xc, false, uint16(len(name)), name).Reply()
 	if err != nil {
 		panic(err)

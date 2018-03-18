@@ -500,7 +500,7 @@ func handleMapRequestEvent(e xproto.MapRequestEvent) error {
 		w := workspaces["default"]
 		xproto.MapWindowChecked(xc, e.Window)
 		c, err := NewClient(e.Window)
-		if err != nil {
+		if err == nil {
 			w.Add(c)
 			w.Arrange()
 		} else {

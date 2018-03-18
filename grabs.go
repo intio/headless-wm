@@ -114,7 +114,7 @@ func initKeys() {
 			if err := xproto.GrabKeyChecked(
 				xc,
 				false,
-				xroot.Root,
+				wm.xroot.Root,
 				grabbed.modifiers,
 				code,
 				xproto.GrabModeAsync,
@@ -128,10 +128,7 @@ func initKeys() {
 }
 
 func cleanupColumns() error {
-	w := getActiveWorkspace()
-	if w == nil {
-		return nil
-	}
+	w := wm.GetActiveWorkspace()
 	switch l := w.Layout.(type) {
 	case *ColumnLayout:
 		l.cleanupColumns()
@@ -140,10 +137,7 @@ func cleanupColumns() error {
 }
 
 func addColumn() error {
-	w := getActiveWorkspace()
-	if w == nil {
-		return nil
-	}
+	w := wm.GetActiveWorkspace()
 	switch l := w.Layout.(type) {
 	case *ColumnLayout:
 		l.addColumn()
@@ -152,18 +146,15 @@ func addColumn() error {
 }
 
 func setLayoutOnActiveWorkspace(l Layout) error {
-	w := getActiveWorkspace()
-	if w == nil {
-		return nil
-	}
+	w := wm.GetActiveWorkspace()
 	w.SetLayout(l)
 	return w.Arrange()
 }
 
 func moveClientOnActiveWorkspace(d Direction) func() error {
 	return func() error {
-		w := getActiveWorkspace()
-		if w == nil || activeClient == nil {
+		w := wm.GetActiveWorkspace()
+		if activeClient == nil {
 			return nil
 		}
 		w.Layout.MoveClient(activeClient, d)

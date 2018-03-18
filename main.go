@@ -11,10 +11,17 @@ import (
 )
 
 var xc *xgb.Conn
-var xroot xproto.ScreenInfo
 var errorQuit error = errors.New("Quit")
 var keymap [256][]xproto.Keysym
-var attachedScreens []xinerama.ScreenInfo
+
+var wm = &WM{
+	workspaces: []*Workspace{
+		&Workspace{
+			Layout: &ColumnLayout{},
+		},
+	},
+	active: 0,
+}
 
 func closeClientGracefully() error {
 	if activeClient == nil {
@@ -47,14 +54,14 @@ func initScreens() {
 			// If Xinerama does not return useful information, we can
 			// still query the root window, and create a fake
 			// ScreenInfo structure.
-			attachedScreens = []xinerama.ScreenInfo{
+			wm.attachedScreens = []xinerama.ScreenInfo{
 				xinerama.ScreenInfo{
 					Width:  setup.Roots[0].WidthInPixels,
 					Height: setup.Roots[0].HeightInPixels,
 				},
 			}
 		} else {
-			attachedScreens = r.ScreenInfo
+			wm.attachedScreens = r.ScreenInfo
 		}
 	}
 
@@ -65,13 +72,13 @@ func initScreens() {
 	if len(coninfo.Roots) != 1 {
 		log.Fatal("Bad number of roots. Did Xinerama initialize correctly?")
 	}
-	xroot = coninfo.Roots[0]
+	wm.xroot = coninfo.Roots[0]
 }
 
 func initWM() {
 	err := xproto.ChangeWindowAttributesChecked(
 		xc,
-		xroot.Root,
+		wm.xroot.Root,
 		xproto.CwEventMask,
 		[]uint32{
 			xproto.EventMaskKeyPress |
@@ -91,25 +98,25 @@ func initWM() {
 }
 
 func initWorkspaces() {
-	tree, err := xproto.QueryTree(xc, xroot.Root).Reply()
+	tree, err := xproto.QueryTree(xc, wm.xroot.Root).Reply()
 	if err != nil {
 		log.Fatal(err)
 	}
 	if tree != nil {
-		defaultw := workspaces["default"]
+		w := wm.GetActiveWorkspace()
 		for _, win := range tree.Children {
 			if c, err := NewClient(win); err != nil {
 				log.Println(err)
 			} else {
-				defaultw.AddClient(c)
+				w.AddClient(c)
 			}
 		}
 	}
-	if len(attachedScreens) == 0 {
+	if len(wm.attachedScreens) == 0 {
 		panic("no attached screens!?")
 	}
-	for _, workspace := range workspaces {
-		workspace.Screen = &attachedScreens[0]
+	for _, workspace := range wm.workspaces {
+		workspace.Screen = &wm.attachedScreens[0]
 		if err := workspace.Arrange(); err != nil {
 			log.Println(err)
 		}
@@ -178,7 +185,7 @@ func handleKeyPressEvent(key xproto.KeyPressEvent) error {
 }
 
 func handleDestroyNotifyEvent(e xproto.DestroyNotifyEvent) error {
-	for _, w := range workspaces {
+	for _, w := range wm.workspaces {
 		if w.HasWindow(e.Window) {
 			w.RemoveWindow(e.Window)
 			w.Arrange()
@@ -190,7 +197,7 @@ func handleDestroyNotifyEvent(e xproto.DestroyNotifyEvent) error {
 		xproto.SetInputFocus(
 			xc,
 			xproto.InputFocusPointerRoot, // revert to
-			xroot.Root,                   // focus
+			wm.xroot.Root,                // focus
 			xproto.TimeCurrentTime,       // time
 		)
 	}
@@ -223,7 +230,7 @@ func handleMapRequestEvent(e xproto.MapRequestEvent) error {
 	var err error
 	winattrib, err := xproto.GetWindowAttributes(xc, e.Window).Reply()
 	if err != nil || !winattrib.OverrideRedirect {
-		w := workspaces["default"]
+		w := wm.GetActiveWorkspace()
 		xproto.MapWindowChecked(xc, e.Window)
 		c, err := NewClient(e.Window)
 		if err == nil {
@@ -232,12 +239,15 @@ func handleMapRequestEvent(e xproto.MapRequestEvent) error {
 		} else {
 			return err
 		}
+		if activeClient == nil {
+			activeClient = c
+		}
 	}
 	return err
 }
 
 func handleEnterNotifyEvent(e xproto.EnterNotifyEvent) error {
-	for _, ws := range workspaces {
+	for _, ws := range wm.workspaces {
 		if c := ws.GetClient(e.Event); c != nil {
 			activeClient = c
 		}
@@ -280,17 +290,6 @@ TakeFocusPropLoop:
 			e.Event, // focus
 			e.Time,  // timestamp
 		)
-	}
-	return nil
-}
-
-// getActiveWorkspace returns the Workspace containing the current
-// active Client, or nil if no Client is active.
-func getActiveWorkspace() *Workspace {
-	for _, w := range workspaces {
-		if w.IsActive() {
-			return w
-		}
 	}
 	return nil
 }

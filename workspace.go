@@ -15,12 +15,6 @@ type Workspace struct {
 	Layout
 }
 
-var workspaces = map[string]*Workspace{
-	"default": &Workspace{
-		Layout: &ColumnLayout{},
-	},
-}
-
 // AddClient registers the client in this Workspace (and its Layout).
 func (w *Workspace) AddClient(c *Client) {
 	w.Layout.AddClient(c)

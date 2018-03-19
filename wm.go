@@ -155,7 +155,8 @@ func (wm *WM) initWorkspaces() error {
 
 // AddClient adds the client to WM's internal client list.
 func (wm *WM) AddClient(c *Client) {
-	wm.clients[c.Window] = c
+	w := c.window // private!
+	wm.clients[w] = c
 }
 
 // GetClient returns the Client from associated Window ID, or nil.

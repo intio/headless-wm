@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/BurntSushi/xgb/xinerama"
-	"github.com/BurntSushi/xgb/xproto"
 )
 
 // Workspace represents a set of windows displayed at once, arranged
@@ -43,24 +42,6 @@ func (w *Workspace) HasClient(c *Client) bool {
 		}
 	}
 	return false
-}
-
-// GetClient finds the client corresponding to the given window ID in
-// this Workspace.
-func (w *Workspace) GetClient(window xproto.Window) *Client {
-	for _, c := range w.Layout.GetClients() {
-		if window == c.Window {
-			return c
-		}
-	}
-	return nil
-}
-
-// RemoveWindow removes a window from the workspace.
-func (w *Workspace) RemoveWindow(window xproto.Window) {
-	if c := w.GetClient(window); c != nil {
-		w.Layout.RemoveClient(c)
-	}
 }
 
 // Hide requests all clients on this workspace to unmap (hide).

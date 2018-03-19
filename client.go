@@ -9,8 +9,6 @@ import (
 
 // Client is an X11 client managed by us.
 type Client struct {
-	// Window represents X11's internal window ID.
-	Window xproto.Window
 	// X and Y are the coordinates of the topleft corner of the window.
 	X, Y uint32
 	// W and H are width and height. Zero means don't change.
@@ -23,6 +21,8 @@ type Client struct {
 
 	// xc is our private pointer to the X11 socket
 	xc *xgb.Conn
+	// window is the (private) ID of our X11 window
+	window xproto.Window
 }
 
 // NewClient allocates the Client struct, with the X socket and Window
@@ -31,7 +31,6 @@ type Client struct {
 // afterwards.
 func NewClient(xc *xgb.Conn, w xproto.Window) *Client {
 	return &Client{
-		Window:      w,
 		X:           0,
 		Y:           0,
 		W:           0,
@@ -39,7 +38,8 @@ func NewClient(xc *xgb.Conn, w xproto.Window) *Client {
 		BorderWidth: 1,
 		StackMode:   xproto.StackModeAbove,
 
-		xc: xc,
+		xc:     xc,
+		window: w,
 	}
 }
 
@@ -53,7 +53,7 @@ func (c *Client) Init() error {
 	// Get notifications when this window is deleted.
 	if err := xproto.ChangeWindowAttributesChecked(
 		c.xc,
-		c.Window,
+		c.window,
 		xproto.CwEventMask,
 		[]uint32{
 			xproto.EventMaskStructureNotify |
@@ -85,7 +85,7 @@ func (c *Client) Configure() error {
 	valueList = append(valueList, c.BorderWidth, c.StackMode)
 	return xproto.ConfigureWindowChecked(
 		c.xc,
-		c.Window,
+		c.window,
 		valueMask,
 		valueList,
 	).Check()
@@ -96,7 +96,7 @@ func (c *Client) WarpPointer() error {
 	return xproto.WarpPointerChecked(
 		c.xc,     // conn
 		0,        // src
-		c.Window, // dst
+		c.window, // dst
 		0,        // src x
 		0,        // src x
 		0,        // src w
@@ -113,7 +113,7 @@ func (c *Client) CloseGracefully() error {
 	prop, err := xproto.GetProperty(
 		c.xc,                      // conn
 		false,                     // delete
-		c.Window,                  // window
+		c.window,                  // window
 		atomWMProtocols,           // property
 		xproto.GetPropertyTypeAny, // atom
 		0,  // offset
@@ -133,7 +133,7 @@ func (c *Client) CloseGracefully() error {
 			t := time.Now().Unix()
 			ev := xproto.ClientMessageEvent{
 				Format: 32,
-				Window: c.Window,
+				Window: c.window,
 				Type:   atomWMProtocols,
 				Data: xproto.ClientMessageDataUnionData32New([]uint32{
 					uint32(atomWMDeleteWindow),
@@ -146,7 +146,7 @@ func (c *Client) CloseGracefully() error {
 			return xproto.SendEventChecked(
 				c.xc,                    // conn
 				false,                   // propagate
-				c.Window,                // destination
+				c.window,                // destination
 				xproto.EventMaskNoEvent, // eventmask
 				string(ev.Bytes()),      // event
 			).Check()
@@ -159,15 +159,15 @@ func (c *Client) CloseGracefully() error {
 
 // CloseForcefully destroys the window.
 func (c *Client) CloseForcefully() error {
-	return xproto.DestroyWindowChecked(c.xc, c.Window).Check()
+	return xproto.DestroyWindowChecked(c.xc, c.window).Check()
 }
 
 // Hide requests the client to unmap (hide).
 func (c *Client) Hide() error {
-	return xproto.UnmapWindowChecked(c.xc, c.Window).Check()
+	return xproto.UnmapWindowChecked(c.xc, c.window).Check()
 }
 
 // Show requests the client to show up again.
 func (c *Client) Show() error {
-	return xproto.MapWindowChecked(c.xc, c.Window).Check()
+	return xproto.MapWindowChecked(c.xc, c.window).Check()
 }

@@ -117,11 +117,7 @@ func (wm *WM) handleMapRequestEvent(e xproto.MapRequestEvent) error {
 }
 
 func (wm *WM) handleEnterNotifyEvent(e xproto.EnterNotifyEvent) error {
-	for _, ws := range wm.workspaces {
-		if c := ws.GetClient(e.Event); c != nil {
-			wm.activeClient = c
-		}
-	}
+	wm.activeClient = wm.GetClient(e.Event)
 	if wm.activeClient == nil {
 		panic("no workspace is managing this window - what happened?")
 	}
@@ -141,7 +137,7 @@ TakeFocusPropLoop:
 				xproto.EventMaskNoEvent,
 				string(xproto.ClientMessageEvent{
 					Format: 32,
-					Window: wm.activeClient.Window,
+					Window: wm.activeClient.window, // private!
 					Type:   atomWMProtocols,
 					Data: xproto.ClientMessageDataUnionData32New([]uint32{
 						uint32(atomWMTakeFocus),

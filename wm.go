@@ -141,6 +141,9 @@ func (wm *WM) initWorkspaces() error {
 	}
 	wm.AddWorkspace(w)
 	for _, win := range tree.Children {
+		if wm.GetClient(win) != nil {
+			panic("window already managed by a client - what happened?")
+		}
 		c := NewClient(wm.xc, win)
 		err := c.Init()
 		if err != nil {

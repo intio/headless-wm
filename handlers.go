@@ -100,6 +100,9 @@ func (wm *WM) handleMapRequestEvent(e xproto.MapRequestEvent) error {
 	if err != nil || !winattrib.OverrideRedirect {
 		w := wm.GetActiveWorkspace()
 		xproto.MapWindowChecked(wm.xc, e.Window)
+		if wm.GetClient(e.Window) != nil {
+			panic("window already managed by a client - what happened?")
+		}
 		c := NewClient(wm.xc, e.Window)
 		err := c.Init()
 		if err == nil {

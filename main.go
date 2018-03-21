@@ -4,6 +4,8 @@ import (
 	"errors"
 	"log"
 	"os"
+
+	"github.com/BurntSushi/xgb/xproto"
 )
 
 var (
@@ -31,7 +33,7 @@ func main() {
 	var wm = NewWM()
 	err := wm.Init()
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	defer wm.Deinit()
 
@@ -48,5 +50,11 @@ func main() {
 		default:
 			log.Print(err)
 		}
+		assert(wm.painter.DrawText(
+			xproto.Drawable(wm.xroot.Root),
+			0, 12,
+			wm.xroot.WhitePixel,
+			"look mama, I'm drawing some random text on the root window",
+		))
 	}
 }

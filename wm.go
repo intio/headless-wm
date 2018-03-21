@@ -2,10 +2,15 @@ package main
 
 import (
 	"errors"
+	"log"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xinerama"
 	"github.com/BurntSushi/xgb/xproto"
+)
+
+var (
+	errSetup = errors.New("could not parse SetupInfo")
 )
 
 // WM holds the global window manager state.
@@ -17,6 +22,8 @@ type WM struct {
 
 	grabs  []*Grab
 	keymap [256][]xproto.Keysym
+
+	painter *Painter
 
 	clients      map[xproto.Window]*Client
 	activeClient *Client
@@ -42,6 +49,7 @@ func (wm *WM) Init() error {
 	if err != nil {
 		return err
 	}
+	wm.painter = NewPainter(wm.xc)
 
 	if err = wm.initScreens(); err != nil {
 		return err
@@ -53,6 +61,9 @@ func (wm *WM) Init() error {
 		return err
 	}
 	if err = wm.initKeys(); err != nil {
+		return err
+	}
+	if err = wm.painter.Init(wm); err != nil {
 		return err
 	}
 	if err = wm.initWorkspaces(); err != nil {
@@ -72,37 +83,32 @@ func (wm *WM) Deinit() {
 func (wm *WM) initScreens() error {
 	setup := xproto.Setup(wm.xc)
 	if setup == nil || len(setup.Roots) < 1 {
-		return errors.New("Could not parse SetupInfo.")
+		return errSetup
 	}
-	if err := xinerama.Init(wm.xc); err != nil {
-		return err
-	}
-	if r, err := xinerama.QueryScreens(wm.xc).Reply(); err != nil {
-		return err
-	} else {
-		if len(r.ScreenInfo) == 0 {
-			// If Xinerama does not return useful information, we can
-			// still query the root window, and create a fake
-			// ScreenInfo structure.
-			wm.attachedScreens = []xinerama.ScreenInfo{
-				xinerama.ScreenInfo{
-					Width:  setup.Roots[0].WidthInPixels,
-					Height: setup.Roots[0].HeightInPixels,
-				},
-			}
-		} else {
+	if err := xinerama.Init(wm.xc); err == nil {
+		log.Println("Xinerama initialized")
+		if r, err := xinerama.QueryScreens(wm.xc).Reply(); err != nil {
+			log.Printf("Xinerama real screens: %#v", r.ScreenInfo)
 			wm.attachedScreens = r.ScreenInfo
 		}
 	}
-
-	coninfo := xproto.Setup(wm.xc)
-	if coninfo == nil {
-		return errors.New("Could not parse X connection info")
+	if len(wm.attachedScreens) == 0 {
+		// If Xinerama is not supported, or does not return useful
+		// information, we can still query the root window, and create
+		// a fake ScreenInfo structure.
+		wm.attachedScreens = []xinerama.ScreenInfo{
+			xinerama.ScreenInfo{
+				Width:  setup.Roots[0].WidthInPixels,
+				Height: setup.Roots[0].HeightInPixels,
+			},
+		}
+		log.Printf("Xinerama faked screens: %#v", wm.attachedScreens)
 	}
-	if len(coninfo.Roots) != 1 {
+
+	if len(setup.Roots) != 1 {
 		return errors.New("Bad number of roots. Did Xinerama initialize correctly?")
 	}
-	wm.xroot = coninfo.Roots[0]
+	wm.xroot = setup.Roots[0]
 	return nil
 }
 

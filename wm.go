@@ -48,6 +48,9 @@ func (wm *WM) Init() error {
 	if err = wm.initWM(); err != nil {
 		return err
 	}
+	if err = wm.initClients(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -93,6 +96,28 @@ func (wm *WM) initScreens() error {
 		return errors.New("Bad number of roots. Did Xinerama initialize correctly?")
 	}
 	wm.xroot = coninfo.Roots[0]
+	return nil
+}
+
+func (wm *WM) initClients() error {
+	tree, err := xproto.QueryTree(wm.xc, wm.xroot.Root).Reply()
+	if err != nil {
+		return err
+	}
+	if tree == nil {
+		return nil
+	}
+	for _, win := range tree.Children {
+		if wm.GetClient(win) != nil {
+			panic("window already managed by a client - what happened?")
+		}
+		c := NewClient(wm.xc, win)
+		err := c.Init()
+		if err != nil {
+			return err
+		}
+		wm.AddClient(c)
+	}
 	return nil
 }
 

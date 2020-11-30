@@ -7,8 +7,7 @@ some form of remote control over the display is necessary.
 
 It has no keybindings, no window decorations, no workspaces; it's
 almost completely bare-bones except for keeping a list of
-active/managed clients which can be manipulated through a (TODO) HTTP
-API.
+active/managed clients, which can be manipulated through an HTTP API.
 
 ## Lineage
 

@@ -34,6 +34,8 @@ func main() {
 		log.Fatal(err)
 	}
 	defer wm.Deinit()
+	var api = NewAPIServer(wm, "127.0.0.1:8080")
+	go api.Start()
 
 	for {
 		err := wm.handleEvent()

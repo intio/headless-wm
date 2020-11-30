@@ -68,7 +68,6 @@ func (wm *WM) handleConfigureRequestEvent(e xproto.ConfigureRequestEvent) error 
 		Y:                e.Y,
 		Width:            e.Width,
 		Height:           e.Height,
-		BorderWidth:      0,
 		OverrideRedirect: false,
 	}
 	xproto.SendEventChecked(

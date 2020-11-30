@@ -13,8 +13,6 @@ type Client struct {
 	X, Y uint32
 	// W and H are width and height. Zero means don't change.
 	W, H uint32
-	// Width of the window border (1 by default).
-	BorderWidth uint32
 	// one of: StackModeAbove (default), StackModeBelow,
 	// StackModeTopIf, StackModeBottomIf, StackModeOpposite.
 	StackMode uint32
@@ -31,12 +29,11 @@ type Client struct {
 // afterwards.
 func NewClient(xc *xgb.Conn, w xproto.Window) *Client {
 	return &Client{
-		X:           0,
-		Y:           0,
-		W:           0,
-		H:           0,
-		BorderWidth: 1,
-		StackMode:   xproto.StackModeAbove,
+		X:         0,
+		Y:         0,
+		W:         0,
+		H:         0,
+		StackMode: xproto.StackModeAbove,
 
 		xc:     xc,
 		window: w,
@@ -82,7 +79,7 @@ func (c *Client) Configure() error {
 		valueMask |= xproto.ConfigWindowHeight
 		valueList = append(valueList, c.H)
 	}
-	valueList = append(valueList, c.BorderWidth, c.StackMode)
+	valueList = append(valueList, 0 /* BorderWidth= */, c.StackMode)
 	return xproto.ConfigureWindowChecked(
 		c.xc,
 		c.window,
@@ -116,8 +113,8 @@ func (c *Client) CloseGracefully() error {
 		c.window,                  // window
 		atomWMProtocols,           // property
 		xproto.GetPropertyTypeAny, // atom
-		0,  // offset
-		64, // length
+		0,                         // offset
+		64,                        // length
 	).Reply()
 	if err != nil {
 		return err

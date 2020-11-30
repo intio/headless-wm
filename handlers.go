@@ -37,13 +37,6 @@ func (wm *WM) handleEvent() error {
 }
 
 func (wm *WM) handleKeyPressEvent(key xproto.KeyPressEvent) error {
-	for _, grab := range wm.grabs {
-		if grab.modifiers == key.State &&
-			grab.sym == wm.keymap[key.Detail][0] &&
-			grab.callback != nil {
-			return grab.callback()
-		}
-	}
 	return nil
 }
 
@@ -53,17 +46,11 @@ func (wm *WM) handleKeyReleaseEvent(key xproto.KeyReleaseEvent) error {
 
 func (wm *WM) handleDestroyNotifyEvent(e xproto.DestroyNotifyEvent) error {
 	c := wm.GetClient(e.Window)
-	for _, w := range wm.workspaces {
-		if w.HasClient(c) {
-			w.RemoveClient(c)
-			w.Arrange()
-		}
-	}
 	if wm.activeClient != nil && wm.activeClient == c {
 		wm.activeClient = nil
 		// Cannot call 'replyChecked' on a cookie that is not expecting a *reply* or an error.
 		xproto.SetInputFocus(
-			wm.xc, // conn
+			wm.xc,                        // conn
 			xproto.InputFocusPointerRoot, // revert to
 			wm.xroot.Root,                // focus
 			xproto.TimeCurrentTime,       // time
@@ -98,7 +85,6 @@ func (wm *WM) handleMapRequestEvent(e xproto.MapRequestEvent) error {
 	var err error
 	winattrib, err := xproto.GetWindowAttributes(wm.xc, e.Window).Reply()
 	if err != nil || !winattrib.OverrideRedirect {
-		w := wm.GetActiveWorkspace()
 		xproto.MapWindowChecked(wm.xc, e.Window)
 		if wm.GetClient(e.Window) != nil {
 			panic("window already managed by a client - what happened?")
@@ -107,8 +93,6 @@ func (wm *WM) handleMapRequestEvent(e xproto.MapRequestEvent) error {
 		err := c.Init()
 		if err == nil {
 			wm.AddClient(c)
-			w.AddClient(c)
-			w.Arrange()
 		} else {
 			return err
 		}
@@ -159,8 +143,8 @@ TakeFocusPropLoop:
 		xproto.SetInputFocus(
 			wm.xc,
 			xproto.InputFocusPointerRoot, // revert
-			e.Event, // focus
-			e.Time,  // timestamp
+			e.Event,                      // focus
+			e.Time,                       // timestamp
 		)
 	}
 	return nil

@@ -1,45 +1,17 @@
-# dewm (forked)
+# Headless WM
 
-`dewm` is a pure Go autotiling window manager. You may find it
-somewhat similar to [dwm][] or [wmii][], but has some ideas of its
-own.
+This is a purely headless, API-driven, X11 window manager. It is meant
+for kiosks, public displays, and other situations where interaction
+with the screen / machine is limited (for users and/or staff), and
+some form of remote control over the display is necessary.
 
-This `dewm` was forked from Dave MacFarlane's [dewm][original-dewm],
-which was written in [literate style][literate-programming], using
-[lmt][]. The fork dropped the original Markdown sources, heavy
-refactoring and cleanup was done, bugs were fixed, some features
-dropped, more added, arbitrary changes made.
+It has no keybindings, no window decorations, no workspaces; it's
+almost completely bare-bones except for keeping a list of
+active/managed clients which can be manipulated through a (TODO) HTTP
+API.
 
-[original-dewm]: https://github.com/driusan/dewm
-[literate-programming]: https://en.wikipedia.org/wiki/Literate_programming
-[lmt]: https://github.com/driusan/lmt
-[dwm]: https://dwm.suckless.org/
-[wmii]: https://code.google.com/archive/p/wmii/
+## Lineage
 
-## Basics
-
-`dewm` arranges the screen into columns, and divides columns up
-between windows that are in that column. Windows always spawn in the
-first empty column, or the end of the last column if there are no
-empty columns. All columns are equally sized, and each window in any
-given column is equally sized.
-
-## Keybindings
-
-These keybindings are currently hardcoded, but may one day be configurable.
-
-### Window Management
-
-* `Alt-H/Alt-L` move the current window left or right 1 column.
-* `Alt-J/Alt-K` move the current window up or down 1 window in current column
-* `Alt-M` switch to monocle layout (maximize all windows)
-* `Alt-T` switch to tile/columns layout
-* `Alt-N` create a new column 
-* `Alt-D` delete any empty columns
-
-### Other
-
-* `Alt-Enter` spawn an xterm
-* `Alt-Q` close the current window
-* `Alt-Shift-Q` destroy the current window
-* `Ctrl-Alt-Shift-Q` quit dewm
+This is a fork of [rollcat's `dewm`](https://github.com/rollcat/dewm),
+which is a fork of [Dave MacFarlane's `dewm`](https://github.com/driusan/dewm),
+which includes bits from [taowm](https://github.com/nigeltao/taowm).

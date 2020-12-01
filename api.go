@@ -109,6 +109,12 @@ func NewAPIServer(wm *WM, listenAddr string) (as *APIServer) {
 				client.H = /* uint16-> */ uint32(as.wm.xroot.HeightInPixels)
 			}
 			client.Configure()
+		case "DELETE":
+			if err := client.CloseGracefully(); err != nil {
+				log.Print(err)
+			}
+			jsonResponse(w, r, 200, nil)
+			return
 		default:
 			panic("unreachable")
 		}
@@ -117,7 +123,7 @@ func NewAPIServer(wm *WM, listenAddr string) (as *APIServer) {
 				"item": client,
 			},
 		)
-	}).Methods("GET", "POST")
+	}).Methods("GET", "POST", "DELETE")
 
 	router.PathPrefix("/").Handler(http.NotFoundHandler())
 	as = &APIServer{

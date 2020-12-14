@@ -33,6 +33,15 @@ func NewAPIServer(wm *WM, listenAddr string) (as *APIServer) {
 		WriteTimeout:   1 * time.Second,
 		MaxHeaderBytes: 1 << 16,
 	}
+
+	router.HandleFunc("/screens/", func(w http.ResponseWriter, r *http.Request) {
+		jsonResponse(w, r, 200,
+			map[string]interface{}{
+				"items": as.wm.attachedScreens,
+			},
+		)
+	}).Methods("GET")
+
 	router.HandleFunc("/clients/", func(w http.ResponseWriter, r *http.Request) {
 		for _, client := range as.wm.clients {
 			name, _ := client.GetName()

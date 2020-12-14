@@ -16,6 +16,10 @@ func (wm *WM) handleEvent() error {
 		return wm.handleKeyPressEvent(e)
 	case xproto.KeyReleaseEvent:
 		return wm.handleKeyReleaseEvent(e)
+	case xproto.ButtonPressEvent:
+		return wm.handleButtonPressEvent(e)
+	case xproto.ButtonReleaseEvent:
+		return wm.handleButtonReleaseEvent(e)
 	case xproto.DestroyNotifyEvent:
 		return wm.handleDestroyNotifyEvent(e)
 	case xproto.ConfigureRequestEvent:
@@ -41,6 +45,14 @@ func (wm *WM) handleKeyPressEvent(key xproto.KeyPressEvent) error {
 }
 
 func (wm *WM) handleKeyReleaseEvent(key xproto.KeyReleaseEvent) error {
+	return nil
+}
+
+func (wm *WM) handleButtonPressEvent(btn xproto.ButtonPressEvent) error {
+	return nil
+}
+
+func (wm *WM) handleButtonReleaseEvent(btn xproto.ButtonReleaseEvent) error {
 	return nil
 }
 

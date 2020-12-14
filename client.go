@@ -16,6 +16,8 @@ type Client struct {
 	// one of: StackModeAbove (default), StackModeBelow,
 	// StackModeTopIf, StackModeBottomIf, StackModeOpposite.
 	StackMode uint32
+	// Name is the window name
+	Name string
 
 	// xc is our private pointer to the X11 socket
 	xc *xgb.Conn
@@ -167,4 +169,40 @@ func (c *Client) Hide() error {
 // Show requests the client to show up again.
 func (c *Client) Show() error {
 	return xproto.MapWindowChecked(c.xc, c.window).Check()
+}
+
+// GetName queries for the current WM_NAME / _NET_WM_NAME property
+// (window name). _NET_WM_NAME is checked first, and if empty, WM_NAME
+// is checked.
+func (c *Client) GetName() (name string, err error) {
+	prop, err := xproto.GetProperty(
+		c.xc,                      // conn
+		false,                     // delete
+		c.window,                  // window
+		atomNETWMName,             // property
+		xproto.GetPropertyTypeAny, // atom
+		0,                         // offset
+		(1<<32)-1,                 // length
+	).Reply()
+	if err != nil {
+		return
+	}
+	name = string(prop.Value)
+	if name != "" {
+		return
+	}
+	prop, err = xproto.GetProperty(
+		c.xc,                      // conn
+		false,                     // delete
+		c.window,                  // window
+		atomWMName,                // property
+		xproto.GetPropertyTypeAny, // atom
+		0,                         // offset
+		(1<<32)-1,                 // length
+	).Reply()
+	if err != nil {
+		return
+	}
+	name = string(prop.Value)
+	return
 }

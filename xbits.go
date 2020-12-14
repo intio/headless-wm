@@ -7,15 +7,21 @@ import (
 
 // ICCCM related atoms
 var (
-	atomWMProtocols    xproto.Atom
-	atomWMDeleteWindow xproto.Atom
-	atomWMTakeFocus    xproto.Atom
+	atomWMProtocols     xproto.Atom
+	atomWMDeleteWindow  xproto.Atom
+	atomWMTakeFocus     xproto.Atom
+	atomWMName          xproto.Atom
+	atomNETActiveWindow xproto.Atom
+	atomNETWMName       xproto.Atom
 )
 
 func (wm *WM) initAtoms() error {
 	atomWMProtocols = getAtom(wm.xc, "WM_PROTOCOLS")
 	atomWMDeleteWindow = getAtom(wm.xc, "WM_DELETE_WINDOW")
 	atomWMTakeFocus = getAtom(wm.xc, "WM_TAKE_FOCUS")
+	atomWMName = getAtom(wm.xc, "WM_NAME")
+	atomNETActiveWindow = getAtom(wm.xc, "_NET_ACTIVE_WINDOW")
+	atomNETWMName = getAtom(wm.xc, "_NET_WM_NAME")
 	return nil
 }
 

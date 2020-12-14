@@ -34,6 +34,10 @@ func NewAPIServer(wm *WM, listenAddr string) (as *APIServer) {
 		MaxHeaderBytes: 1 << 16,
 	}
 	router.HandleFunc("/clients/", func(w http.ResponseWriter, r *http.Request) {
+		for _, client := range as.wm.clients {
+			name, _ := client.GetName()
+			client.Name = name
+		}
 		jsonResponse(w, r, 200,
 			map[string]interface{}{
 				"items": as.wm.clients,
@@ -118,6 +122,8 @@ func NewAPIServer(wm *WM, listenAddr string) (as *APIServer) {
 		default:
 			panic("unreachable")
 		}
+		name, _ := client.GetName()
+		client.Name = name
 		jsonResponse(w, r, 200,
 			map[string]interface{}{
 				"item": client,

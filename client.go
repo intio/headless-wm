@@ -43,14 +43,14 @@ func NewClient(xc *xgb.Conn, w xproto.Window) *Client {
 }
 
 // Init initializes the client - initial configuration and event mask.
-func (c *Client) Init() error {
+func (c *Client) Init() (err error) {
 	// Ensure that we can manage this window.
-	if err := c.Configure(); err != nil {
-		return err
+	if err = c.Configure(); err != nil {
+		return
 	}
 
 	// Get notifications when this window is deleted.
-	if err := xproto.ChangeWindowAttributesChecked(
+	if err = xproto.ChangeWindowAttributesChecked(
 		c.xc,
 		c.window,
 		xproto.CwEventMask,
@@ -59,9 +59,14 @@ func (c *Client) Init() error {
 				xproto.EventMaskEnterWindow,
 		},
 	).Check(); err != nil {
-		return err
+		return
 	}
-	return nil
+
+	if c.Name, err = c.GetName(); err != nil {
+		return
+	}
+
+	return
 }
 
 // Configure sends a configuration request to inflict Client's

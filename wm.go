@@ -32,27 +32,26 @@ func NewWM() *WM {
 // Init opens the X11 connections, performs the necessary calls to set
 // up the internal WM state, and to start managing windows. You should
 // also call Deinit before you exit.
-func (wm *WM) Init() error {
-	var err error
+func (wm *WM) Init() (err error) {
 	wm.xc, err = xgb.NewConn()
 	if err != nil {
-		return err
+		return
 	}
 
 	if err = wm.initScreens(); err != nil {
-		return err
+		return
 	}
 	if err = wm.initAtoms(); err != nil {
-		return err
+		return
 	}
 	if err = wm.initWM(); err != nil {
-		return err
+		return
 	}
 	if err = wm.initClients(); err != nil {
-		return err
+		return
 	}
 
-	return nil
+	return
 }
 
 // Deinit cleans up internal WM state before exiting.

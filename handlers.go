@@ -92,13 +92,13 @@ func (wm *WM) handleConfigureRequestEvent(e xproto.ConfigureRequestEvent) error 
 	return nil
 }
 
-func (wm *WM) handleMapRequestEvent(e xproto.MapRequestEvent) error {
-	var err error
+func (wm *WM) handleMapRequestEvent(e xproto.MapRequestEvent) (err error) {
 	winattrib, err := xproto.GetWindowAttributes(wm.xc, e.Window).Reply()
 	if err != nil || !winattrib.OverrideRedirect {
 		xproto.MapWindowChecked(wm.xc, e.Window)
-		if wm.GetClient(e.Window) != nil {
-			panic("window already managed by a client - what happened?")
+		if c := wm.GetClient(e.Window); c != nil {
+			log.Printf("MapRequest already managed: %v", e.Window)
+			return nil
 		}
 		c := NewClient(wm.xc, e.Window)
 		err := c.Init()

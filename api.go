@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -9,11 +10,17 @@ import (
 
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/gorilla/mux"
+	"nhooyr.io/websocket"
 )
 
+type WSClient struct {
+	ch chan interface{}
+}
+
 type APIServer struct {
-	server *http.Server
-	wm     *WM
+	server  *http.Server
+	wm      *WM
+	clients map[*WSClient]interface{}
 }
 
 func jsonResponse(w http.ResponseWriter, r *http.Request, status int, data interface{}) {
@@ -134,11 +141,37 @@ func NewAPIServer(wm *WM, listenAddr string) (as *APIServer) {
 		)
 	}).Methods("GET", "POST", "DELETE")
 
+	router.HandleFunc(
+		"/events/",
+		makeWSHandler(func(ctx context.Context, c *websocket.Conn) {
+			client := &WSClient{ch: make(chan interface{}, 10)}
+			as.clients[client] = nil
+			defer func() {
+				// Normally only the writer should ever close the
+				// channel.  However we never terminate the WS
+				// connection on our own so this seems fair.
+				close(client.ch)
+				delete(as.clients, client)
+			}()
+			for v := range client.ch {
+				data, err := json.Marshal(v)
+				if err != nil {
+					log.Print(err)
+					continue
+				}
+				c.Write(ctx, websocket.MessageText, data)
+			}
+			c.Close(websocket.StatusNormalClosure, "")
+		}),
+	)
+
 	router.PathPrefix("/").Handler(http.NotFoundHandler())
 	as = &APIServer{
-		server: server,
-		wm:     wm,
+		server:  server,
+		wm:      wm,
+		clients: make(map[*WSClient]interface{}),
 	}
+	wm.api = as
 	return as
 }
 

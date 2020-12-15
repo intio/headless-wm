@@ -18,7 +18,7 @@ type WM struct {
 	clients      map[xproto.Window]*Client
 	activeClient *Client
 
-	activeWs int
+	api *APIServer
 }
 
 // NewWM allocates internal WM data structures and creates a WM

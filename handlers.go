@@ -1,43 +1,67 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/BurntSushi/xgb/xproto"
 )
 
-func (wm *WM) handleEvent() error {
+func (wm *WM) handleEvent() (err error) {
 	xev, err := wm.xc.WaitForEvent()
 	if err != nil {
 		return err
 	}
+	data := (map[string]interface{}{
+		"type":  fmt.Sprintf("%T", xev),
+		"event": xev,
+	})
 	switch e := xev.(type) {
 	case xproto.KeyPressEvent:
-		return wm.handleKeyPressEvent(e)
+		err = wm.handleKeyPressEvent(e)
 	case xproto.KeyReleaseEvent:
-		return wm.handleKeyReleaseEvent(e)
+		err = wm.handleKeyReleaseEvent(e)
 	case xproto.ButtonPressEvent:
-		return wm.handleButtonPressEvent(e)
+		err = wm.handleButtonPressEvent(e)
 	case xproto.ButtonReleaseEvent:
-		return wm.handleButtonReleaseEvent(e)
+		err = wm.handleButtonReleaseEvent(e)
 	case xproto.DestroyNotifyEvent:
-		return wm.handleDestroyNotifyEvent(e)
+		err = wm.handleDestroyNotifyEvent(e)
+		data["client"] = wm.GetClient(e.Window)
+		data["clientID"] = e.Window
 	case xproto.ConfigureRequestEvent:
-		return wm.handleConfigureRequestEvent(e)
+		err = wm.handleConfigureRequestEvent(e)
+		data["client"] = wm.GetClient(e.Window)
+		data["clientID"] = e.Window
 	case xproto.MapRequestEvent:
-		return wm.handleMapRequestEvent(e)
+		err = wm.handleMapRequestEvent(e)
+		data["client"] = wm.GetClient(e.Window)
+		data["clientID"] = e.Window
 	case xproto.EnterNotifyEvent:
-		return wm.handleEnterNotifyEvent(e)
+		err = wm.handleEnterNotifyEvent(e)
+		data["client"] = wm.GetClient(e.Event)
+		data["clientID"] = e.Event
 	case xproto.MapNotifyEvent:
-		return wm.handleMapNotifyEvent(e)
+		err = wm.handleMapNotifyEvent(e)
+		data["client"] = wm.GetClient(e.Window)
+		data["clientID"] = e.Window
 	case xproto.UnmapNotifyEvent:
-		return wm.handleUnmapNotifyEvent(e)
+		err = wm.handleUnmapNotifyEvent(e)
+		data["client"] = wm.GetClient(e.Window)
+		data["clientID"] = e.Window
 	case xproto.ConfigureNotifyEvent:
-		return wm.handleConfigureNotifyEvent(e)
-	default:
-		log.Printf("Unhandled event: %#v", xev)
+		err = wm.handleConfigureNotifyEvent(e)
+		data["client"] = wm.GetClient(e.Window)
+		data["clientID"] = e.Window
 	}
-	return nil
+	if wm.api != nil {
+		go func() {
+			for c := range wm.api.clients {
+				c.ch <- data
+			}
+		}()
+	}
+	return err
 }
 
 func (wm *WM) handleKeyPressEvent(key xproto.KeyPressEvent) error {

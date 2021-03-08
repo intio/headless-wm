@@ -208,5 +208,8 @@ func (wm *WM) handleUnmapNotifyEvent(e xproto.UnmapNotifyEvent) error {
 }
 
 func (wm *WM) handleConfigureNotifyEvent(e xproto.ConfigureNotifyEvent) error {
+	if err := wm.updateScreens(); err != nil {
+		return err
+	}
 	return nil
 }

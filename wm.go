@@ -69,21 +69,18 @@ func (wm *WM) initScreens() error {
 	if err := xinerama.Init(wm.xc); err != nil {
 		return err
 	}
-	if r, err := xinerama.QueryScreens(wm.xc).Reply(); err != nil {
+	if err := wm.updateScreens(); err != nil {
 		return err
-	} else {
-		if len(r.ScreenInfo) == 0 {
-			// If Xinerama does not return useful information, we can
-			// still query the root window, and create a fake
-			// ScreenInfo structure.
-			wm.attachedScreens = []xinerama.ScreenInfo{
-				xinerama.ScreenInfo{
-					Width:  setup.Roots[0].WidthInPixels,
-					Height: setup.Roots[0].HeightInPixels,
-				},
-			}
-		} else {
-			wm.attachedScreens = r.ScreenInfo
+	}
+	if len(wm.attachedScreens) == 0 {
+		// If Xinerama does not return useful information, we can
+		// still query the root window, and create a fake ScreenInfo
+		// structure.
+		wm.attachedScreens = []xinerama.ScreenInfo{
+			xinerama.ScreenInfo{
+				Width:  setup.Roots[0].WidthInPixels,
+				Height: setup.Roots[0].HeightInPixels,
+			},
 		}
 	}
 
@@ -95,6 +92,16 @@ func (wm *WM) initScreens() error {
 		return errors.New("Bad number of roots. Did Xinerama initialize correctly?")
 	}
 	wm.xroot = coninfo.Roots[0]
+	return nil
+}
+
+func (wm *WM) updateScreens() error {
+	// TODO: randr
+	if r, err := xinerama.QueryScreens(wm.xc).Reply(); err != nil {
+		return err
+	} else if len(r.ScreenInfo) > 0 {
+		wm.attachedScreens = r.ScreenInfo
+	}
 	return nil
 }
 

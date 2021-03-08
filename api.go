@@ -74,14 +74,6 @@ func NewAPIServer(wm *WM, listenAddr string) (as *APIServer) {
 		}
 		return nil
 	}
-	getBool := func(key string, data map[string]interface{}) *bool {
-		if value, ok := data[key]; ok {
-			if b, ok := value.(bool); ok {
-				return &b
-			}
-		}
-		return nil
-	}
 
 	router.HandleFunc("/clients/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) {
 		id := getIdUint(r)
@@ -106,6 +98,12 @@ func NewAPIServer(wm *WM, listenAddr string) (as *APIServer) {
 				return
 			}
 			log.Print("update client ", id, " with ", data)
+			if fullscreenOn := getInt("FullscreenOn", data); fullscreenOn != nil {
+				if int(*fullscreenOn) < len(as.wm.attachedScreens) {
+					screen := &as.wm.attachedScreens[int(*fullscreenOn)]
+					client.MakeFullscreen(screen)
+				}
+			}
 			if X := getInt("X", data); X != nil {
 				client.X = *X
 			}
@@ -117,12 +115,6 @@ func NewAPIServer(wm *WM, listenAddr string) (as *APIServer) {
 			}
 			if H := getInt("H", data); H != nil {
 				client.H = *H
-			}
-			if Fullscreen := getBool("Fullscreen", data); Fullscreen != nil && *Fullscreen {
-				client.X = 0
-				client.Y = 0
-				client.W = /* uint16-> */ uint32(as.wm.xroot.WidthInPixels)
-				client.H = /* uint16-> */ uint32(as.wm.xroot.HeightInPixels)
 			}
 			client.Configure()
 		case "DELETE":

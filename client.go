@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/xgb"
+	"github.com/BurntSushi/xgb/xinerama"
 	"github.com/BurntSushi/xgb/xproto"
 )
 
@@ -210,4 +211,12 @@ func (c *Client) GetName() (name string, err error) {
 	}
 	name = string(prop.Value)
 	return
+}
+
+// MakeFullscreen will re-arrange this client to fit the given screen.
+func (c *Client) MakeFullscreen(screen *xinerama.ScreenInfo) {
+	c.X = uint32(screen.XOrg)
+	c.Y = uint32(screen.YOrg)
+	c.W = uint32(screen.Width)
+	c.H = uint32(screen.Height)
 }

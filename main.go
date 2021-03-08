@@ -6,6 +6,8 @@ import (
 	"os"
 )
 
+var version string
+
 var (
 	errorQuit      = errors.New("Quit")
 	errorAnotherWM = errors.New("Another WM already running")
@@ -28,6 +30,9 @@ func (wm *WM) closeClientForcefully() error {
 }
 
 func main() {
+	if version != "" {
+		log.Printf("version: %s", version)
+	}
 	var wm = NewWM()
 	err := wm.Init()
 	if err != nil {

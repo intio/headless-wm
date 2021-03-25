@@ -35,6 +35,9 @@ func (wm *WM) closeClientForcefully() error {
 
 func main() {
 	opts, _, err := getopt.Getopts(os.Args, "l:")
+	if err != nil {
+		log.Fatal(err)
+	}
 	for _, opt := range opts {
 		switch opt.Option {
 		case 'l':

@@ -1,3 +1,5 @@
+git.sr.ht/~sircmpwn/getopt v0.0.0-20201218204720-9961a9c6298f h1:f5axCdaRzGDCihN3o1Lq0ydn0VlkhY+11G0JOyY5qss=
+git.sr.ht/~sircmpwn/getopt v0.0.0-20201218204720-9961a9c6298f/go.mod h1:wMEGFFFNuPos7vHmWXfszqImLppbc0wEhh6JBfJIUgw=
 github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc h1:7D+Bh06CRPCJO3gr2F7h1sriovOZ8BMhca2Rg85c2nk=
 github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

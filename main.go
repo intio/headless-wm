@@ -2,11 +2,15 @@ package main
 
 import (
 	"errors"
+	"git.sr.ht/~sircmpwn/getopt"
 	"log"
 	"os"
 )
 
-var version string
+var (
+	version    string
+	listenAddr string = "127.0.0.1:8080"
+)
 
 var (
 	errorQuit      = errors.New("Quit")
@@ -30,16 +34,23 @@ func (wm *WM) closeClientForcefully() error {
 }
 
 func main() {
+	opts, _, err := getopt.Getopts(os.Args, "l:")
+	for _, opt := range opts {
+		switch opt.Option {
+		case 'l':
+			listenAddr = opt.Value
+		}
+	}
 	if version != "" {
 		log.Printf("version: %s", version)
 	}
 	var wm = NewWM()
-	err := wm.Init()
+	err = wm.Init()
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer wm.Deinit()
-	var api = NewAPIServer(wm, "127.0.0.1:8080")
+	var api = NewAPIServer(wm, listenAddr)
 	go api.Start()
 
 	for {

@@ -117,6 +117,9 @@ func NewAPIServer(wm *WM, listenAddr string) (as *APIServer) {
 				client.H = uint16(*H)
 			}
 			client.Configure()
+			if focus := getInt("Focus", data); focus != nil && *focus == 1 {
+				client.Focus()
+			}
 		case "DELETE":
 			if err := client.CloseGracefully(); err != nil {
 				log.Print(err)

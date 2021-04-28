@@ -94,6 +94,25 @@ func (c *Client) Configure() error {
 		valueMask,
 		valueList,
 	).Check()
+	if err != nil {
+		return err
+	}
+	return xproto.SendEventChecked(
+		c.xc,                            // conn
+		false,                           // propagate
+		c.window,                        // target
+		xproto.EventMaskStructureNotify, // mask
+		string(xproto.ConfigureNotifyEvent{
+			Event:            c.window,
+			Window:           c.window,
+			AboveSibling:     0,
+			X:                c.X,
+			Y:                c.Y,
+			Width:            c.W,
+			Height:           c.H,
+			OverrideRedirect: false,
+		}.Bytes()),
+	).Check()
 }
 
 // WarpPointer puts the mouse pointer inside of this client's window.
@@ -219,4 +238,14 @@ func (c *Client) MakeFullscreen(screen *xinerama.ScreenInfo) {
 	c.Y = screen.YOrg
 	c.W = screen.Width
 	c.H = screen.Height
+}
+
+// Focus will shift keyboard focus to this client
+func (c *Client) Focus() {
+	xproto.SetInputFocus(
+		c.xc,
+		xproto.InputFocusPointerRoot, // revert
+		c.window,                     // focus
+		xproto.TimeCurrentTime,       // timestamp
+	)
 }

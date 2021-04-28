@@ -114,16 +114,26 @@ func (wm *WM) initClients() error {
 		return nil
 	}
 	for _, win := range tree.Children {
-		if wm.GetClient(win) != nil {
-			panic("window already managed by a client - what happened?")
-		}
-		c := NewClient(wm.xc, win)
-		err := c.Init()
+		err = wm.handleNewWindow(win)
 		if err != nil {
 			return err
 		}
-		wm.AddClient(c)
 	}
+	return nil
+}
+
+func (wm *WM) handleNewWindow(win xproto.Window) error {
+	if wm.GetClient(win) != nil {
+		return nil
+	}
+	c := NewClient(wm.xc, win)
+	// TODO: apply position/size policy
+	c.MakeFullscreen(&wm.attachedScreens[0])
+	err := c.Init()
+	if err != nil {
+		return err
+	}
+	wm.AddClient(c)
 	return nil
 }
 

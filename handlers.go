@@ -96,41 +96,25 @@ func (wm *WM) handleDestroyNotifyEvent(e xproto.DestroyNotifyEvent) error {
 }
 
 func (wm *WM) handleConfigureRequestEvent(e xproto.ConfigureRequestEvent) error {
-	ev := xproto.ConfigureNotifyEvent{
-		Event:            e.Window,
-		Window:           e.Window,
-		AboveSibling:     0,
-		X:                e.X,
-		Y:                e.Y,
-		Width:            e.Width,
-		Height:           e.Height,
-		OverrideRedirect: false,
-	}
-	xproto.SendEventChecked(
-		wm.xc,                           // conn
-		false,                           // propagate
-		e.Window,                        // target
-		xproto.EventMaskStructureNotify, // mask
-		string(ev.Bytes()),              // event
-	)
-	return nil
+	wm.handleNewWindow(e.Window)
+	c := wm.GetClient(e.Window)
+	c.X = e.X
+	c.Y = e.Y
+	c.W = e.Width
+	c.H = e.Height
+	// TODO: apply position/size policy
+	// c.MakeFullscreen(wm.attachedScreens[0])
+	return c.Configure()
 }
 
 func (wm *WM) handleMapRequestEvent(e xproto.MapRequestEvent) (err error) {
 	winattrib, err := xproto.GetWindowAttributes(wm.xc, e.Window).Reply()
 	if err != nil || !winattrib.OverrideRedirect {
 		xproto.MapWindowChecked(wm.xc, e.Window)
-		if c := wm.GetClient(e.Window); c != nil {
-			log.Printf("MapRequest already managed: %v", e.Window)
-			return nil
+		if err = wm.handleNewWindow(e.Window); err == nil {
+			return
 		}
-		c := NewClient(wm.xc, e.Window)
-		err := c.Init()
-		if err == nil {
-			wm.AddClient(c)
-		} else {
-			return err
-		}
+		c := wm.GetClient(e.Window)
 		if wm.activeClient == nil {
 			wm.activeClient = c
 		}
@@ -139,9 +123,10 @@ func (wm *WM) handleMapRequestEvent(e xproto.MapRequestEvent) (err error) {
 }
 
 func (wm *WM) handleEnterNotifyEvent(e xproto.EnterNotifyEvent) error {
-	wm.activeClient = wm.GetClient(e.Event)
+	c := wm.GetClient(e.Event)
+	wm.activeClient = c
 	if wm.activeClient == nil {
-		panic("no workspace is managing this window - what happened?")
+		panic("no client is managing this window - what happened?")
 	}
 	prop, err := xproto.GetProperty(wm.xc, false, e.Event, atomWMProtocols,
 		xproto.GetPropertyTypeAny, 0, 64).Reply()
@@ -174,13 +159,7 @@ TakeFocusPropLoop:
 		}
 	}
 	if !focused {
-		// Cannot call 'replyChecked' on a cookie that is not expecting a *reply* or an error.
-		xproto.SetInputFocus(
-			wm.xc,
-			xproto.InputFocusPointerRoot, // revert
-			e.Event,                      // focus
-			e.Time,                       // timestamp
-		)
+		c.Focus()
 	}
 	return nil
 }
@@ -189,16 +168,17 @@ func (wm *WM) handleMapNotifyEvent(e xproto.MapNotifyEvent) error {
 	// TODO: focus stealing prevention?
 	c := wm.GetClient(e.Window)
 	if c == nil {
-		panic("mapped a window that was not being managed!?")
+		log.Printf("mapped a window that was not being managed: %v", e)
 	}
 	wm.activeClient = c
+	wm.activeClient.Focus()
 	return nil
 }
 
 func (wm *WM) handleUnmapNotifyEvent(e xproto.UnmapNotifyEvent) error {
 	c := wm.GetClient(e.Window)
 	if c == nil {
-		panic("unmapped a window that was not being managed!?")
+		log.Printf("unmapped a window that was not being managed: %v", e)
 	}
 	if wm.activeClient == c {
 		// TODO: look for the active window?

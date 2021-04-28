@@ -204,6 +204,7 @@ func (wm *WM) handleUnmapNotifyEvent(e xproto.UnmapNotifyEvent) error {
 		// TODO: look for the active window?
 		wm.activeClient = nil
 	}
+	wm.ForgetClient(c)
 	return nil
 }
 

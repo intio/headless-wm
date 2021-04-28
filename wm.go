@@ -160,3 +160,16 @@ func (wm *WM) GetClient(w xproto.Window) *Client {
 	c, _ := wm.clients[w]
 	return c
 }
+
+// ForgetClient removes the client from managed clients list.
+func (wm *WM) ForgetClient(clientKey *Client) {
+	var winKey *xproto.Window = nil
+	for win, client := range wm.clients {
+		if clientKey == client {
+			winKey = &win
+		}
+	}
+	if winKey != nil {
+		delete(wm.clients, *winKey)
+	}
+}

@@ -65,10 +65,10 @@ func NewAPIServer(wm *WM, listenAddr string) (as *APIServer) {
 		}
 		return &id
 	}
-	getInt := func(key string, data map[string]interface{}) *uint32 {
+	getInt := func(key string, data map[string]interface{}) *int32 {
 		if value, ok := data[key]; ok {
 			if f, ok := value.(float64); ok {
-				u := uint32(f)
+				u := int32(f)
 				return &u
 			}
 		}
@@ -105,16 +105,16 @@ func NewAPIServer(wm *WM, listenAddr string) (as *APIServer) {
 				}
 			}
 			if X := getInt("X", data); X != nil {
-				client.X = *X
+				client.X = int16(*X)
 			}
 			if Y := getInt("Y", data); Y != nil {
-				client.Y = *Y
+				client.Y = int16(*Y)
 			}
 			if W := getInt("W", data); W != nil {
-				client.W = *W
+				client.W = uint16(*W)
 			}
 			if H := getInt("H", data); H != nil {
-				client.H = *H
+				client.H = uint16(*H)
 			}
 			client.Configure()
 		case "DELETE":

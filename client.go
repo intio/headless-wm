@@ -11,9 +11,9 @@ import (
 // Client is an X11 client managed by us.
 type Client struct {
 	// X and Y are the coordinates of the topleft corner of the window.
-	X, Y uint32
+	X, Y int16
 	// W and H are width and height. Zero means don't change.
-	W, H uint32
+	W, H uint16
 	// one of: StackModeAbove (default), StackModeBelow,
 	// StackModeTopIf, StackModeBottomIf, StackModeOpposite.
 	StackMode uint32
@@ -78,17 +78,17 @@ func (c *Client) Configure() error {
 		xproto.ConfigWindowBorderWidth |
 		xproto.ConfigWindowStackMode)
 	valueList := []uint32{}
-	valueList = append(valueList, c.X, c.Y)
+	valueList = append(valueList, uint32(c.X), uint32(c.Y))
 	if c.W > 0 {
 		valueMask |= xproto.ConfigWindowWidth
-		valueList = append(valueList, c.W)
+		valueList = append(valueList, uint32(c.W))
 	}
 	if c.H > 0 {
 		valueMask |= xproto.ConfigWindowHeight
-		valueList = append(valueList, c.H)
+		valueList = append(valueList, uint32(c.H))
 	}
 	valueList = append(valueList, 0 /* BorderWidth= */, c.StackMode)
-	return xproto.ConfigureWindowChecked(
+	err := xproto.ConfigureWindowChecked(
 		c.xc,
 		c.window,
 		valueMask,
@@ -215,8 +215,8 @@ func (c *Client) GetName() (name string, err error) {
 
 // MakeFullscreen will re-arrange this client to fit the given screen.
 func (c *Client) MakeFullscreen(screen *xinerama.ScreenInfo) {
-	c.X = uint32(screen.XOrg)
-	c.Y = uint32(screen.YOrg)
-	c.W = uint32(screen.Width)
-	c.H = uint32(screen.Height)
+	c.X = screen.XOrg
+	c.Y = screen.YOrg
+	c.W = screen.Width
+	c.H = screen.Height
 }
